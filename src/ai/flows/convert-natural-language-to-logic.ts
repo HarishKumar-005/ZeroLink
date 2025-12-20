@@ -38,55 +38,49 @@ const prompt = ai.definePrompt({
   name: 'convertNaturalLanguageToLogicPrompt',
   input: {schema: ConvertNaturalLanguageToLogicInputSchema},
   output: {schema: ConvertNaturalLanguageToLogicOutputSchema},
-  prompt: `You are an expert AI that converts natural language into a specific JSON format for a logic automation engine. You must return ONLY the JSON as a string.
+  prompt: `You are the ZeroLink Logic Generator.
 
-  Your output must be a JSON object with the following structure:
-  - "name": A short, descriptive name for the rule (e.g., "High Temp Alert").
-  - "trigger": An object that defines what causes the rule to fire.
-  - "action": An object that defines what happens when the rule fires.
+Given a natural language instruction from the user, output a JSON block in this exact format that can be executed in a sensor-based automation system. Return ONLY the JSON as a string.
 
-  --- JSON SCHEMA ---
-  {
-    "name": "string",
-    "trigger": {
-      "type": "'all' or 'any'",
-      "conditions": [
-        {
-          "sensor": "'light' | 'temperature' | 'motion'",
-          "operator": "'>' | '<' | '=' | '!='",
-          "value": "number | boolean"
-        }
-      ]
-    },
-    "action": {
-      "type": "'flashBackground' | 'vibrate' | 'log'",
-      "payload": {
-        // for flashBackground
-        "color"?: "string (CSS color)",
-        // for vibrate
-        "duration"?: "number (milliseconds)",
-        // for log
-        "message"?: "string"
+--- JSON SCHEMA ---
+{
+  "name": "Short title of the logic",
+  "trigger": {
+    "type": "all" or "any",
+    "conditions": [
+      {
+        "sensor": "'light' | 'temperature' | 'motion'",
+        "operator": "'>' | '<' | '=' | '!='",
+        "value": "number | boolean"
       }
+    ]
+  },
+  "action": {
+    "type": "'flashBackground' | 'vibrate' | 'log'",
+    "payload": {
+      "message"?: "Message to show",
+      "color"?: "'red' | 'green' | 'blue' (only for flashBackground)",
+      "duration"?: "number (milliseconds, for vibrate)"
     }
   }
-  --- END SCHEMA ---
+}
+--- END SCHEMA ---
 
-  - For triggers with multiple conditions, use "all" if all must be true, and "any" if any can be true.
-  - For the "motion" sensor, the value will always be a boolean (true for detected, false for not detected).
-  - The "operator" for motion is typically "=".
+RULES:
+- "name" must be concise and readable.
+- For triggers with multiple conditions, use "type": "all" if all must be true, and "any" if any one can be true.
+- If a user says something like “when it’s dark,” translate to { "sensor": "light", "operator": "<", "value": 100 }.
+- For the "motion" sensor, the value will always be a boolean (true for detected, false for not detected). The operator is usually "=".
+- For demo visibility, prefer "flashBackground" or "vibrate" over just "log".
+- Return ONLY the raw JSON object as a string in the 'logicJson' field. Do not include markdown or explanations.
 
-  Example 1:
-  Input: "If the temperature is above 35°C, flash red."
-  Output: { "name": "High Temp Alert", "trigger": { "type": "all", "conditions": [ { "sensor": "temperature", "operator": ">", "value": 35 } ] }, "action": { "type": "flashBackground", "payload": { "color": "red" } } }
+EXAMPLE:
+Input: "If temperature is over 40 and there's no motion, show a warning."
+Output: { "name": "Overheat Warning", "trigger": { "type": "all", "conditions": [ { "sensor": "temperature", "operator": ">", "value": 40 }, { "sensor": "motion", "operator": "=", "value": false } ] }, "action": { "type": "flashBackground", "payload": { "color": "red", "message": "⚠️ Overheat Detected!" } } }
 
-  Example 2:
-  Input: "when motion is detected and the light level is below 100, log 'Intruder Alert'"
-  Output: { "name": "Intruder Alert", "trigger": { "type": "all", "conditions": [ { "sensor": "motion", "operator": "=", "value": true }, { "sensor": "light", "operator": "<", "value": 100 } ] }, "action": { "type": "log", "payload": { "message": "Intruder Alert" } } }
+Now, convert the following natural language description.
 
-  Now, convert the following natural language description. Return only the JSON object as a string in the 'logicJson' field.
-
-  Natural Language Description: {{{naturalLanguage}}}
+Natural Language Description: {{{naturalLanguage}}}
   `,
 });
 

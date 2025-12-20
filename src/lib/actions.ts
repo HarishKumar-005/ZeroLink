@@ -59,32 +59,19 @@ export async function generateLogicAction(
         }
       };
       return { 
-        logic: fallbackLogic, 
-        error: "AI returned an invalid logic structure. Displaying fallback.", 
+        logic: null, 
+        error: "AI returned an invalid logic structure. Please try rephrasing your request.", 
         rawJson: rawJsonResult 
       };
     }
     
-    return { logic: validationResult.data as Logic, error: null, rawJson: rawJsonResult };
+    return { logic: validationResult.data, error: null, rawJson: rawJsonResult };
   } catch (e) {
     console.error("Error generating logic:", e);
     const errorMessage = e instanceof Error ? e.message : "An unknown error occurred.";
-     const fallbackLogic: Logic = {
-        name: "Fallback Logic",
-        trigger: {
-          type: "all",
-          conditions: [
-             { sensor: "temperature", operator: ">", value: 9999 } // Never triggers
-          ]
-        },
-        action: { 
-          type: "log", 
-          payload: { message: `AI Error: ${errorMessage}` }
-        }
-      };
     return { 
-      logic: fallbackLogic, 
-      error: `Failed to generate logic. The AI may have returned an unexpected format. Displaying fallback. Details: ${errorMessage}`,
+      logic: null, 
+      error: `Failed to generate logic. The AI may have returned an unexpected format. Details: ${errorMessage}`,
       rawJson: rawJsonResult
     };
   }
