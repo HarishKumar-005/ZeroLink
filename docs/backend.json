@@ -1,0 +1,79 @@
+{
+  "entities": {
+    "logic": {
+      "title": "Logic",
+      "description": "Represents a shareable automation rule with a trigger and an action.",
+      "type": "object",
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Unique identifier for the logic."
+        },
+        "name": {
+          "type": "string",
+          "description": "User-defined name for the logic."
+        },
+        "trigger": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["all", "any"]
+            },
+            "conditions": {
+              "type": "array",
+              "items": {
+                "type": "object",
+                "properties": {
+                  "sensor": {
+                    "type": "string",
+                    "enum": ["light", "temperature", "motion"]
+                  },
+                  "operator": {
+                    "type": "string",
+                    "enum": [">", "<", "=", "!="]
+                  },
+                  "value": {
+                    "type": ["number", "boolean"]
+                  }
+                },
+                "required": ["sensor", "operator", "value"]
+              }
+            }
+          },
+          "required": ["type", "conditions"]
+        },
+        "action": {
+          "type": "object",
+          "properties": {
+            "type": {
+              "type": "string",
+              "enum": ["flashBackground", "vibrate", "log"]
+            },
+            "payload": {
+              "type": "object",
+              "properties": {
+                "color": { "type": "string" },
+                "message": { "type": "string" },
+                "duration": { "type": "number" }
+              }
+            }
+          },
+          "required": ["type"]
+        }
+      },
+      "required": ["name", "trigger", "action"]
+    }
+  },
+  "auth": {
+    "providers": []
+  },
+  "firestore": {
+    "/users/{userId}/logics/{logicId}": {
+      "schema": {
+        "$ref": "#/entities/logic"
+      },
+      "description": "Stores saved automation logics for each user."
+    }
+  }
+}

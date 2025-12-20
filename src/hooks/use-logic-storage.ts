@@ -3,31 +3,27 @@
 import { useState, useEffect, useCallback } from 'react';
 import { type Logic } from '@/types';
 import { useToast } from './use-toast';
-import { db } from '@/lib/firebase'; // Mocked for now
+import { db } from '@/lib/firebase';
+import { collection, addDoc, getDocs, updateDoc, deleteDoc, doc, query, where } from 'firebase/firestore';
 
-const LOCAL_STORAGE_KEY = 'zero-link-logics';
+// Mock user ID - in a real app, this would come from an auth hook
+const MOCK_USER_ID = 'local-user';
+
+const LOCAL_STORAGE_KEY = `zero-link-logics-${MOCK_USER_ID}`;
 
 export const useLogicStorage = () => {
     const { toast } = useToast();
     const [savedLogics, setSavedLogics] = useState<Logic[]>([]);
     const [isInitialized, setIsInitialized] = useState(false);
 
-    // Load initial data from localStorage
-    useEffect(() => {
-        if (typeof window !== 'undefined') {
-            try {
-                const localData = window.localStorage.getItem(LOCAL_STORAGE_KEY);
-                if (localData) {
-                    const logics = JSON.parse(localData) as Logic[];
-                    setSavedLogics(logics);
-                }
-            } catch (error) {
-                console.error("Failed to load logics from local storage", error);
-                toast({ title: 'Could not load saved logics.', variant: 'destructive' });
-            }
-            setIsInitialized(true);
+    const getLogicsCollection = () => {
+        // This is a placeholder. In a real app with auth, you'd get the user ID dynamically.
+        // For now, we simulate a "local" user collection vs a logged-in one.
+        if (db && MOCK_USER_ID !== 'local-user') {
+            return collection(db, `users/${MOCK_USER_ID}/logics`);
         }
-    }, [toast]);
+        return null;
+    }
 
     const persistToLocalStorage = (logics: Logic[]) => {
         if (typeof window === 'undefined') return;
@@ -37,6 +33,36 @@ export const useLogicStorage = () => {
             console.error("Failed to save to local storage", error);
         }
     };
+    
+    // Load initial data from Firestore or localStorage
+    useEffect(() => {
+        const loadData = async () => {
+            const logicsCollection = getLogicsCollection();
+            if (logicsCollection) {
+                try {
+                    const snapshot = await getDocs(logicsCollection);
+                    const logics = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Logic));
+                    setSavedLogics(logics);
+                } catch (error) {
+                    console.error("Failed to load logics from Firestore", error);
+                    toast({ title: 'Could not load saved logics from the cloud.', variant: 'destructive' });
+                }
+            } else if (typeof window !== 'undefined') {
+                try {
+                    const localData = window.localStorage.getItem(LOCAL_STORAGE_KEY);
+                    if (localData) {
+                        setSavedLogics(JSON.parse(localData));
+                    }
+                } catch (error) {
+                    console.error("Failed to load logics from local storage", error);
+                    toast({ title: 'Could not load saved logics.', variant: 'destructive' });
+                }
+            }
+            setIsInitialized(true);
+        };
+        loadData();
+    }, [toast]);
+
 
     const saveLogic = useCallback(async (logic: Logic) => {
         if (!logic.name) {
@@ -44,36 +70,54 @@ export const useLogicStorage = () => {
             return;
         }
 
-        // In a real app with Firebase, you'd do this:
-        if (db) {
-            // ... firebase save logic here
+        const logicsCollection = getLogicsCollection();
+        let updatedLogics;
+
+        if (logic.id) { // Existing logic
+            if (logicsCollection) {
+                const logicRef = doc(db, `users/${MOCK_USER_ID}/logics`, logic.id);
+                await updateDoc(logicRef, logic);
+            }
+            updatedLogics = savedLogics.map(l => l.id === logic.id ? logic : l);
+        } else { // New logic
+            let newId = crypto.randomUUID();
+            if (logicsCollection) {
+                const docRef = await addDoc(logicsCollection, logic);
+                newId = docRef.id;
+            }
+            const newLogic = { ...logic, id: newId };
+            updatedLogics = [newLogic, ...savedLogics];
         }
 
-        const newLogics = [...savedLogics];
-        const logicWithId = { ...logic, id: logic.id || crypto.randomUUID() };
-        const existingIndex = newLogics.findIndex(l => l.id === logicWithId.id);
-
-        if (existingIndex > -1) {
-            newLogics[existingIndex] = logicWithId;
-        } else {
-            newLogics.unshift(logicWithId);
+        setSavedLogics(updatedLogics);
+        if (!logicsCollection) {
+            persistToLocalStorage(updatedLogics);
         }
 
-        setSavedLogics(newLogics);
-        persistToLocalStorage(newLogics);
-        toast({ title: 'Logic Saved!', description: `'${logic.name}' has been saved locally.` });
+        toast({ title: 'Logic Saved!', description: `'${logic.name}' has been saved.` });
 
     }, [savedLogics, toast]);
 
     const deleteLogic = useCallback(async (logicId: string) => {
-        // In a real app with Firebase, you'd do this:
-        if (db) {
-            // ... firebase delete logic here
-        }
+        const logicsCollection = getLogicsCollection();
 
+        if (logicsCollection) {
+            try {
+                await deleteDoc(doc(db, `users/${MOCK_USER_ID}/logics`, logicId));
+            } catch (error) {
+                console.error("Error deleting from Firestore:", error);
+                toast({ title: 'Delete failed.', variant: 'destructive' });
+                return;
+            }
+        }
+        
         const newLogics = savedLogics.filter(l => l.id !== logicId);
         setSavedLogics(newLogics);
-        persistToLocalStorage(newLogics);
+
+        if (!logicsCollection) {
+            persistToLocalStorage(newLogics);
+        }
+
         toast({ title: 'Logic Deleted' });
     }, [savedLogics, toast]);
     
