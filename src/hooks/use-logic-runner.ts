@@ -25,18 +25,22 @@ export const useLogicRunner = (logic: Logic | null, sensorData: SensorData) => {
     const clearLog = () => setEventLog([]);
 
     const triggerAction = useCallback((logic: Logic) => {
-        const { action } = logic;
+        const { action, name } = logic;
         addLogEntry(`Action triggered: ${action.type}`);
 
         switch (action.type) {
             case 'flashBackground':
-                const color = action.payload?.color || 'yellow';
-                document.body.style.transition = 'background-color 0.1s ease-in-out';
-                const originalColor = window.getComputedStyle(document.body).backgroundColor;
-                document.body.style.backgroundColor = color;
+                document.body.classList.add("flash");
+                
+                const overlay = document.createElement('div');
+                overlay.className = 'flash-overlay';
+                overlay.textContent = `⚠️ Automation Triggered: ${name}`;
+                document.body.appendChild(overlay);
+
                 setTimeout(() => {
-                    document.body.style.backgroundColor = originalColor;
-                }, 500);
+                    document.body.classList.remove("flash");
+                    document.body.removeChild(overlay);
+                }, 1000);
                 break;
             case 'vibrate':
                 if (navigator.vibrate) {

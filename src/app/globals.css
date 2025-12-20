@@ -83,3 +83,31 @@
     @apply bg-background text-foreground;
   }
 }
+
+@layer components {
+  .flash {
+    background-color: #FF0033 !important;
+    transition: none;
+  }
+
+  .flash-overlay {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background-color: rgba(0, 0, 0, 0.75);
+    color: white;
+    padding: 1rem 2rem;
+    border-radius: 0.5rem;
+    font-size: 1.5rem;
+    font-weight: bold;
+    z-index: 9999;
+    pointer-events: none;
+    animation: fadeInOut 1s ease-in-out;
+  }
+
+  @keyframes fadeInOut {
+    0%, 100% { opacity: 0; }
+    10%, 90% { opacity: 1; }
+  }
+}
