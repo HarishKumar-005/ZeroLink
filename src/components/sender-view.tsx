@@ -10,11 +10,7 @@ import { Skeleton } from './ui/skeleton';
 import { Label } from './ui/label';
 import { Switch } from './ui/switch';
 
-interface SenderViewProps {
-  onLogicGenerated: (logic: Logic | null) => void;
-}
-
-export function SenderView({ onLogicGenerated }: SenderViewProps) {
+export function SenderView() {
   const [generatedLogic, setGeneratedLogic] = useState<Logic | null>(null);
   const [rawJson, setRawJson] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
@@ -39,7 +35,6 @@ export function SenderView({ onLogicGenerated }: SenderViewProps) {
     } else if (logic) {
       setError(null);
       setGeneratedLogic(logic);
-      onLogicGenerated(logic);
     }
   };
 

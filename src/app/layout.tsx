@@ -2,12 +2,16 @@
 import type { Metadata, Viewport } from 'next';
 import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
-import { PWAProvider } from '@/components/pwa-provider';
+import { Analytics } from '@vercel/analytics/react';
+import { SpeedInsights } from '@vercel/speed-insights/next';
 
 export const metadata: Metadata = {
-  title: 'ZeroLink',
-  description: 'Convert natural language to logic, shared via QR codes.',
-  manifest: '/manifest.json',
+  title: 'ZeroLink – Offline Automation Protocol',
+  description: 'Build and transmit automation logic using natural language and QR codes. Offline, agentic, and AI-powered.',
+  openGraph: {
+    title: 'ZeroLink – Offline Automation Protocol',
+    description: 'Create shareable, AI-generated automation rules for any device – without code or internet.',
+  }
 };
 
 export const viewport: Viewport = {
@@ -27,9 +31,10 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Inter&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased">
+        <Analytics />
+        <SpeedInsights />
         {children}
         <Toaster />
-        <PWAProvider />
       </body>
     </html>
   );

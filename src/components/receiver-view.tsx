@@ -11,13 +11,9 @@ import { useLogicStorage } from '@/hooks/use-logic-storage';
 import { SavedLogicList } from './saved-logic-list';
 import { useToast } from '@/hooks/use-toast';
 
-interface ReceiverViewProps {
-  onLogicLoad: (logic: Logic | null) => void;
-}
-
 const LAST_LOGIC_KEY = 'zerolink-last-active-logic';
 
-export function ReceiverView({ onLogicLoad }: ReceiverViewProps) {
+export function ReceiverView() {
   const [activeLogic, setActiveLogic] = useState<Logic | null>(null);
   const [sensorData, setSensorData] = useState<SensorData>({
     light: 250,
@@ -37,7 +33,6 @@ export function ReceiverView({ onLogicLoad }: ReceiverViewProps) {
         try {
           const savedLogic = JSON.parse(savedLogicJson) as Logic;
           setActiveLogic(savedLogic);
-          onLogicLoad(savedLogic);
           toast({
             title: "Logic Loaded",
             description: `✅ Loaded previously saved automation: ${savedLogic.name}`,
@@ -53,7 +48,6 @@ export function ReceiverView({ onLogicLoad }: ReceiverViewProps) {
 
   const handleLogicUpdate = (logicToSet: Logic | null) => {
     setActiveLogic(logicToSet);
-    onLogicLoad(logicToSet);
     if (logicToSet && typeof window !== 'undefined') {
       localStorage.setItem(LAST_LOGIC_KEY, JSON.stringify(logicToSet));
     } else if (!logicToSet) {

@@ -5,7 +5,6 @@ import { useState, useEffect } from 'react';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { SenderView } from '@/components/sender-view';
 import { ReceiverView } from '@/components/receiver-view';
-import { type Logic } from '@/types';
 import { Zap, Moon, Sun } from 'lucide-react';
 import { Button } from './ui/button';
 
@@ -28,16 +27,6 @@ export function ZeroLinkApp() {
 
   const toggleTheme = () => {
     setTheme(prevTheme => (prevTheme === 'dark' ? 'light' : 'dark'));
-  };
-
-  const handleLogicGenerated = () => {
-    // This function can be used to switch tabs or other side effects if needed.
-  };
-
-  const handleLogicLoaded = (loadedLogic: Logic | null) => {
-    if (loadedLogic) {
-      setActiveTab('receiver');
-    }
   };
 
   return (
@@ -63,10 +52,10 @@ export function ZeroLinkApp() {
           <TabsTrigger value="receiver">Receiver</TabsTrigger>
         </TabsList>
         <TabsContent value="sender">
-          <SenderView onLogicGenerated={handleLogicGenerated} />
+          <SenderView />
         </TabsContent>
         <TabsContent value="receiver">
-          <ReceiverView onLogicLoad={handleLogicLoaded} />
+          <ReceiverView />
         </TabsContent>
       </Tabs>
     </div>
