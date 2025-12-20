@@ -12,14 +12,13 @@ import { SavedLogicList } from './saved-logic-list';
 import { useToast } from '@/hooks/use-toast';
 
 interface ReceiverViewProps {
-  initialLogic: Logic | null;
   onLogicLoad: (logic: Logic | null) => void;
 }
 
 const LAST_LOGIC_KEY = 'zerolink-last-active-logic';
 
-export function ReceiverView({ initialLogic, onLogicLoad }: ReceiverViewProps) {
-  const [activeLogic, setActiveLogic] = useState<Logic | null>(initialLogic);
+export function ReceiverView({ onLogicLoad }: ReceiverViewProps) {
+  const [activeLogic, setActiveLogic] = useState<Logic | null>(null);
   const [sensorData, setSensorData] = useState<SensorData>({
     light: 250,
     temperature: 20,
@@ -51,10 +50,6 @@ export function ReceiverView({ initialLogic, onLogicLoad }: ReceiverViewProps) {
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []); 
-
-  useEffect(() => {
-    if(initialLogic) setActiveLogic(initialLogic);
-  }, [initialLogic]);
 
   const handleLogicUpdate = (logicToSet: Logic | null) => {
     setActiveLogic(logicToSet);

@@ -10,7 +10,6 @@ import { Zap, Moon, Sun } from 'lucide-react';
 import { Button } from './ui/button';
 
 export function ZeroLinkApp() {
-  const [logic, setLogic] = useState<Logic | null>(null);
   const [activeTab, setActiveTab] = useState('sender');
   const [theme, setTheme] = useState('dark');
 
@@ -31,14 +30,13 @@ export function ZeroLinkApp() {
     setTheme(prevTheme => (prevTheme === 'dark' ? 'light' : 'dark'));
   };
 
-  const handleLogicGenerated = (newLogic: Logic | null) => {
-    setLogic(newLogic);
+  const handleLogicGenerated = () => {
+    // This function can be used to switch tabs or other side effects if needed.
   };
 
   const handleLogicLoaded = (loadedLogic: Logic | null) => {
-    setLogic(loadedLogic);
-    if(loadedLogic) {
-        setActiveTab('receiver');
+    if (loadedLogic) {
+      setActiveTab('receiver');
     }
   };
 
@@ -68,7 +66,7 @@ export function ZeroLinkApp() {
           <SenderView onLogicGenerated={handleLogicGenerated} />
         </TabsContent>
         <TabsContent value="receiver">
-          <ReceiverView initialLogic={logic} onLogicLoad={handleLogicLoaded} />
+          <ReceiverView onLogicLoad={handleLogicLoaded} />
         </TabsContent>
       </Tabs>
     </div>
