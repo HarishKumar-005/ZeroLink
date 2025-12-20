@@ -1,3 +1,4 @@
+
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -25,7 +26,7 @@ const FormSchema = z.object({
 });
 
 interface LogicInputFormProps {
-  onSubmit: (logic: Logic | null, error: string | null) => void;
+  onSubmit: (logic: Logic | null, error: string | null, rawJson: string | null) => void;
   setIsLoading: (loading: boolean) => void;
 }
 
@@ -40,9 +41,9 @@ export function LogicInputForm({ onSubmit, setIsLoading }: LogicInputFormProps) 
 
   async function handleFormSubmit(data: z.infer<typeof FormSchema>) {
     setIsLoading(true);
-    const { logic, error } = await generateLogicAction(data.naturalLanguage);
+    const { logic, error, rawJson } = await generateLogicAction(data.naturalLanguage);
     
-    if (error) {
+    if (error && !logic) {
       toast({
         title: "Generation Failed",
         description: error,
@@ -50,7 +51,7 @@ export function LogicInputForm({ onSubmit, setIsLoading }: LogicInputFormProps) 
       });
     }
 
-    onSubmit(logic, error);
+    onSubmit(logic, error, rawJson);
   }
 
   return (

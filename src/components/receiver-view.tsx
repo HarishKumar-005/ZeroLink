@@ -32,7 +32,7 @@ export function ReceiverView({ initialLogic, onLogicLoad }: ReceiverViewProps) {
 
   const handleLogicScanned = (scannedLogic: Logic) => {
     // Prevent duplicate scans of the same logic
-    if (JSON.stringify(scannedLogic) === JSON.stringify(activeLogic)) {
+    if (activeLogic && JSON.stringify(scannedLogic) === JSON.stringify(activeLogic)) {
       return; 
     }
     setActiveLogic(scannedLogic);
@@ -63,6 +63,9 @@ export function ReceiverView({ initialLogic, onLogicLoad }: ReceiverViewProps) {
             </CardHeader>
             <CardContent>
               <QrScanner onScanSuccess={handleLogicScanned} />
+               <p className="text-muted-foreground text-center italic mt-4">
+                No logic loaded. Scan a QR code to begin automation.
+               </p>
             </CardContent>
           </Card>
         ) : (
@@ -71,7 +74,10 @@ export function ReceiverView({ initialLogic, onLogicLoad }: ReceiverViewProps) {
             sensorData={sensorData}
             onSensorChange={setSensorData}
             onSave={handleSaveCurrentLogic}
-            onClear={() => setActiveLogic(null)}
+            onClear={() => {
+              setActiveLogic(null);
+              onLogicLoad(null);
+            }}
             eventLog={eventLog}
             onClearLog={clearLog}
           />

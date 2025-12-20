@@ -1,24 +1,38 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { LogicInputForm } from '@/components/logic-input-form';
 import { QrCodeDisplay } from '@/components/qr-code-display';
 import { type Logic } from '@/types';
 import { Skeleton } from './ui/skeleton';
+import { Label } from './ui/label';
+import { Switch } from './ui/switch';
 
 interface SenderViewProps {
-  onLogicGenerated: (logic: Logic) => void;
+  onLogicGenerated: (logic: Logic | null) => void;
 }
 
 export function SenderView({ onLogicGenerated }: SenderViewProps) {
   const [generatedLogic, setGeneratedLogic] = useState<Logic | null>(null);
+  const [rawJson, setRawJson] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [showDebug, setShowDebug] = useState(false);
 
-  const handleFormSubmit = async (logic: Logic | null, error: string | null) => {
+  const qrDisplayRef = useRef<HTMLDivElement>(null);
+  const isDevelopment = process.env.NODE_ENV === 'development';
+
+  useEffect(() => {
+    if (generatedLogic && qrDisplayRef.current) {
+      qrDisplayRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [generatedLogic]);
+
+  const handleFormSubmit = async (logic: Logic | null, error: string | null, rawJson: string | null) => {
     setIsLoading(false);
+    setRawJson(rawJson);
     if (error) {
       setError(error);
       setGeneratedLogic(null);
@@ -40,8 +54,24 @@ export function SenderView({ onLogicGenerated }: SenderViewProps) {
       <CardContent className="space-y-6">
         <LogicInputForm onSubmit={handleFormSubmit} setIsLoading={setIsLoading} />
         
+        {isDevelopment && (
+          <div className="flex items-center space-x-2">
+            <Switch id="debug-mode" checked={showDebug} onCheckedChange={setShowDebug} />
+            <Label htmlFor="debug-mode">Show Raw JSON Response</Label>
+          </div>
+        )}
+
         {error && <p className="text-sm text-destructive text-center">{error}</p>}
 
+        {showDebug && rawJson && (
+          <div className="mt-4">
+            <h4 className="font-semibold mb-2">Raw Gemini Response:</h4>
+            <pre className="p-4 bg-muted rounded-md text-xs overflow-auto">
+              <code>{rawJson}</code>
+            </pre>
+          </div>
+        )}
+        
         {isLoading && (
           <div className="space-y-4">
             <Skeleton className="h-8 w-1/2 mx-auto" />
@@ -51,7 +81,7 @@ export function SenderView({ onLogicGenerated }: SenderViewProps) {
         )}
         
         {generatedLogic && !isLoading && (
-          <div className="mt-6">
+          <div className="mt-6" ref={qrDisplayRef}>
             <h3 className="text-lg font-semibold text-center mb-2">Your Logic Link is Ready</h3>
             <p className="text-sm text-center text-muted-foreground mb-4">
               Scan the QR code below on another device to load the logic.

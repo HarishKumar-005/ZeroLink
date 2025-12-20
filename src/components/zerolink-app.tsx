@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -11,13 +12,15 @@ export function ZeroLinkApp() {
   const [logic, setLogic] = useState<Logic | null>(null);
   const [activeTab, setActiveTab] = useState('sender');
 
-  const handleLogicGenerated = (newLogic: Logic) => {
+  const handleLogicGenerated = (newLogic: Logic | null) => {
     setLogic(newLogic);
   };
 
-  const handleLogicLoaded = (loadedLogic: Logic) => {
+  const handleLogicLoaded = (loadedLogic: Logic | null) => {
     setLogic(loadedLogic);
-    setActiveTab('receiver');
+    if(loadedLogic) {
+        setActiveTab('receiver');
+    }
   };
 
   return (

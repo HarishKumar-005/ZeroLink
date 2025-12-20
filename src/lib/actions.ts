@@ -28,28 +28,64 @@ const LogicSchema = z.object({
 
 export async function generateLogicAction(
   naturalLanguage: string
-): Promise<{ logic: Logic | null; error: string | null }> {
+): Promise<{ logic: Logic | null; error: string | null; rawJson: string | null }> {
   if (!naturalLanguage.trim()) {
-    return { logic: null, error: "Please enter a description for the logic." };
+    return { logic: null, error: "Please enter a description for the logic.", rawJson: null };
   }
 
+  let rawJsonResult: string | null = null;
   try {
     const result = await convertNaturalLanguageToLogic({ naturalLanguage });
+    rawJsonResult = result.logicJson;
     
-    const logicObject = JSON.parse(result.logicJson);
+    const logicObject = JSON.parse(rawJsonResult);
 
     // Validate the structure of the AI output
     const validationResult = LogicSchema.safeParse(logicObject);
 
     if (!validationResult.success) {
       console.error("Zod validation failed:", validationResult.error.flatten());
-      throw new Error("AI returned an invalid logic structure.");
+      const fallbackLogic: Logic = {
+        name: "Fallback Logic",
+        trigger: {
+          type: "all",
+          conditions: [
+            { sensor: "temperature", operator: ">", value: 9999 } // Never triggers
+          ]
+        },
+        action: { 
+          type: "log", 
+          payload: { message: "AI returned invalid structure." } 
+        }
+      };
+      return { 
+        logic: fallbackLogic, 
+        error: "AI returned an invalid logic structure. Displaying fallback.", 
+        rawJson: rawJsonResult 
+      };
     }
     
-    return { logic: validationResult.data as Logic, error: null };
+    return { logic: validationResult.data as Logic, error: null, rawJson: rawJsonResult };
   } catch (e) {
     console.error("Error generating logic:", e);
     const errorMessage = e instanceof Error ? e.message : "An unknown error occurred.";
-    return { logic: null, error: `Failed to generate logic. The AI may have returned an unexpected format. Details: ${errorMessage}` };
+     const fallbackLogic: Logic = {
+        name: "Fallback Logic",
+        trigger: {
+          type: "all",
+          conditions: [
+             { sensor: "temperature", operator: ">", value: 9999 } // Never triggers
+          ]
+        },
+        action: { 
+          type: "log", 
+          payload: { message: `AI Error: ${errorMessage}` }
+        }
+      };
+    return { 
+      logic: fallbackLogic, 
+      error: `Failed to generate logic. The AI may have returned an unexpected format. Displaying fallback. Details: ${errorMessage}`,
+      rawJson: rawJsonResult
+    };
   }
 }
