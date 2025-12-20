@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from 'react';
@@ -38,6 +39,9 @@ export function SenderView({ onLogicGenerated }: SenderViewProps) {
       </CardHeader>
       <CardContent className="space-y-6">
         <LogicInputForm onSubmit={handleFormSubmit} setIsLoading={setIsLoading} />
+        
+        {error && <p className="text-sm text-destructive text-center">{error}</p>}
+
         {isLoading && (
           <div className="space-y-4">
             <Skeleton className="h-8 w-1/2 mx-auto" />
@@ -45,7 +49,7 @@ export function SenderView({ onLogicGenerated }: SenderViewProps) {
             <Skeleton className="h-64 w-64 mx-auto rounded-lg" />
           </div>
         )}
-        {error && <p className="text-center text-destructive">{error}</p>}
+        
         {generatedLogic && !isLoading && (
           <div className="mt-6">
             <h3 className="text-lg font-semibold text-center mb-2">Your Logic Link is Ready</h3>

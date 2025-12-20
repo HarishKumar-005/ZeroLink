@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from 'react';
@@ -30,6 +31,10 @@ export function ReceiverView({ initialLogic, onLogicLoad }: ReceiverViewProps) {
   }, [initialLogic]);
 
   const handleLogicScanned = (scannedLogic: Logic) => {
+    // Prevent duplicate scans of the same logic
+    if (JSON.stringify(scannedLogic) === JSON.stringify(activeLogic)) {
+      return; 
+    }
     setActiveLogic(scannedLogic);
     onLogicLoad(scannedLogic);
   };
