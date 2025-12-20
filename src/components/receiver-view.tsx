@@ -9,11 +9,14 @@ import { type Logic, type SensorData } from '@/types';
 import { useLogicRunner } from '@/hooks/use-logic-runner';
 import { useLogicStorage } from '@/hooks/use-logic-storage';
 import { SavedLogicList } from './saved-logic-list';
+import { useToast } from '@/hooks/use-toast';
 
 interface ReceiverViewProps {
   initialLogic: Logic | null;
-  onLogicLoad: (logic: Logic) => void;
+  onLogicLoad: (logic: Logic | null) => void;
 }
+
+const LAST_LOGIC_KEY = 'zerolink-last-active-logic';
 
 export function ReceiverView({ initialLogic, onLogicLoad }: ReceiverViewProps) {
   const [activeLogic, setActiveLogic] = useState<Logic | null>(initialLogic);
@@ -23,25 +26,57 @@ export function ReceiverView({ initialLogic, onLogicLoad }: ReceiverViewProps) {
     motion: false,
   });
 
+  const { toast } = useToast();
   const { savedLogics, saveLogic, deleteLogic } = useLogicStorage();
   const { eventLog, clearLog } = useLogicRunner(activeLogic, sensorData);
   
+  // Auto-load previously scanned logic on mount
+  useEffect(() => {
+    if (!activeLogic && typeof window !== 'undefined') {
+      const savedLogicJson = localStorage.getItem(LAST_LOGIC_KEY);
+      if (savedLogicJson) {
+        try {
+          const savedLogic = JSON.parse(savedLogicJson) as Logic;
+          setActiveLogic(savedLogic);
+          onLogicLoad(savedLogic);
+          toast({
+            title: "Logic Loaded",
+            description: `✅ Loaded previously saved automation: ${savedLogic.name}`,
+          });
+        } catch (e) {
+          console.error("Failed to parse saved logic", e);
+          localStorage.removeItem(LAST_LOGIC_KEY);
+        }
+      }
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); 
+
   useEffect(() => {
     if(initialLogic) setActiveLogic(initialLogic);
   }, [initialLogic]);
 
+  const handleLogicUpdate = (logicToSet: Logic | null) => {
+    setActiveLogic(logicToSet);
+    onLogicLoad(logicToSet);
+    if (logicToSet && typeof window !== 'undefined') {
+      localStorage.setItem(LAST_LOGIC_KEY, JSON.stringify(logicToSet));
+    } else if (!logicToSet) {
+      localStorage.removeItem(LAST_LOGIC_KEY);
+    }
+  };
+  
   const handleLogicScanned = (scannedLogic: Logic) => {
     // Prevent duplicate scans of the same logic
     if (activeLogic && JSON.stringify(scannedLogic) === JSON.stringify(activeLogic)) {
+      toast({ description: "This logic is already loaded."});
       return; 
     }
-    setActiveLogic(scannedLogic);
-    onLogicLoad(scannedLogic);
+    handleLogicUpdate(scannedLogic);
   };
   
   const handleLoadLogic = (logic: Logic) => {
-    setActiveLogic(logic);
-    onLogicLoad(logic);
+    handleLogicUpdate(logic);
   }
 
   const handleSaveCurrentLogic = async () => {
@@ -49,6 +84,11 @@ export function ReceiverView({ initialLogic, onLogicLoad }: ReceiverViewProps) {
       await saveLogic(activeLogic);
     }
   }
+  
+  const handleUnload = () => {
+    handleLogicUpdate(null);
+    clearLog();
+  };
 
   return (
     <div className="grid gap-6 md:grid-cols-2">
@@ -74,10 +114,7 @@ export function ReceiverView({ initialLogic, onLogicLoad }: ReceiverViewProps) {
             sensorData={sensorData}
             onSensorChange={setSensorData}
             onSave={handleSaveCurrentLogic}
-            onClear={() => {
-              setActiveLogic(null);
-              onLogicLoad(null);
-            }}
+            onClear={handleUnload}
             eventLog={eventLog}
             onClearLog={clearLog}
           />
