@@ -48,7 +48,6 @@ export const useLogicRunner = (logic: Logic | null, sensorData: SensorData) => {
         const { action, name } = logic;
         addLogEntry(`Action triggered: ${action.type}`);
 
-        // --- DEMO FEEDBACK ---
         if (navigator.vibrate) {
             navigator.vibrate(action.payload?.duration || 200);
         }
@@ -59,17 +58,33 @@ export const useLogicRunner = (logic: Logic | null, sensorData: SensorData) => {
         feedbackOverlay.innerHTML = `🔔 Action Triggered: <strong>${name}</strong>`;
         document.body.appendChild(feedbackOverlay);
         setTimeout(() => {
-            document.body.removeChild(feedbackOverlay);
+            if (document.body.contains(feedbackOverlay)) {
+                document.body.removeChild(feedbackOverlay);
+            }
         }, 2000);
-        // --- END DEMO FEEDBACK ---
 
 
         switch (action.type) {
             case 'flashBackground':
-                document.body.classList.add("flash");
+                const overlay = document.createElement('div');
+                overlay.className = 'fixed inset-0 text-white text-2xl font-bold flex items-center justify-center z-50 animate-fade';
+                const color = action.payload?.color || 'blue';
+                // A simple mapping for bg colors from the limited set.
+                const bgColorClass = {
+                    'red': 'bg-red-600',
+                    'green': 'bg-green-600',
+                    'blue': 'bg-blue-600'
+                }[color] || 'bg-gray-800';
+                
+                overlay.classList.add(bgColorClass);
+                overlay.innerText = action.payload?.message || `Action: ${name}`;
+                
+                document.body.appendChild(overlay);
                 setTimeout(() => {
-                    document.body.classList.remove("flash");
-                }, 1000);
+                    if (document.body.contains(overlay)) {
+                      document.body.removeChild(overlay);
+                    }
+                }, 1500);
                 break;
             case 'vibrate':
                 // The vibration is now handled in the generic feedback section above
