@@ -57,11 +57,10 @@ Your job is to convert natural language into a valid JSON automation logic block
       ]
     },
     "action": {
-      "type": "log" | "flashBackground" | "vibrate",
-      "payload"?: {
-        "message"?: string,
-        "color"?: string,
-        "duration"?: number
+      "type": "toggle",
+      "payload": {
+        "device": "light" | "fan" | "pump" | "siren",
+        "state": "on" | "off"
       }
     }
   }
@@ -72,18 +71,22 @@ Your job is to convert natural language into a valid JSON automation logic block
 - For the "motion" sensor, the value must be a boolean (true for detected, false for not detected).
 - For triggers with multiple conditions, use "type": "all" if all must be true, and "any" if any one can be true.
 
-💬 Example Input: "If the temperature is more than 30°C, vibrate."
+💬 Example Input: "Turn on fan if it's too hot"
 ✅ Expected Output in 'logicJson' field:
 {
-  "name": "Heat Alert",
+  "name": "Temperature Fan Control",
   "trigger": {
     "type": "all",
     "conditions": [
-      { "sensor": "temperature", "operator": ">", "value": 30 }
+      { "sensor": "temperature", "operator": ">", "value": 35 }
     ]
   },
   "action": {
-    "type": "vibrate"
+    "type": "toggle",
+    "payload": {
+      "device": "fan",
+      "state": "on"
+    }
   }
 }
 
