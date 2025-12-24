@@ -6,7 +6,7 @@ import { Html5Qrcode, type Html5QrcodeError, type Html5QrcodeResult } from 'html
 import { type Logic } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from './ui/button';
-import { Camera, RefreshCw, Loader2, X, ShieldAlert, PackageCheck } from 'lucide-react';
+import { Camera, RefreshCw, Loader2, X, ShieldAlert } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from './ui/card';
@@ -19,10 +19,10 @@ interface QrScannerProps {
 type CameraState = 'idle' | 'loading' | 'streaming' | 'denied' | 'error' | 'unsupported';
 
 type QrChunk = {
-  s: string; // sessionId
-  p: number; // part index
-  t: number; // total parts
-  d: string; // data
+  sessionId: string;
+  chunkIndex: number;
+  totalChunks: number;
+  data: string;
 }
 
 const qrboxFunction = (viewfinderWidth: number, viewfinderHeight: number) => {
@@ -112,31 +112,31 @@ export function QrScanner({ onScanSuccess }: QrScannerProps) {
     try {
       const parsed = JSON.parse(decodedText) as QrChunk;
       // It's a structured chunk
-      if (parsed.s && parsed.p && parsed.t && parsed.d) {
+      if (parsed.sessionId && parsed.chunkIndex !== undefined && parsed.totalChunks && parsed.data) {
           
           if (scanSessionId === null) {
               // First chunk of a new session
-              setScanSessionId(parsed.s);
-              setTotalChunks(parsed.t);
-              toast({ description: `Multipart logic detected. Total parts: ${parsed.t}.` });
-          } else if (scanSessionId !== parsed.s) {
+              setScanSessionId(parsed.sessionId);
+              setTotalChunks(parsed.totalChunks);
+              toast({ description: `Multipart logic detected. Total parts: ${parsed.totalChunks}.` });
+          } else if (scanSessionId !== parsed.sessionId) {
               toast({ title: 'Scan Mismatch', description: 'This QR code is from a different logic. Please reset and start over.', variant: 'destructive' });
               return;
           }
           
-          if (!scannedChunks.has(parsed.p)) {
-            setScannedChunks(new Map(scannedChunks.set(parsed.p, parsed.d)));
+          if (!scannedChunks.has(parsed.chunkIndex)) {
+            setScannedChunks(new Map(scannedChunks.set(parsed.chunkIndex, parsed.data)));
           }
 
           // Soft retry logic
-          if (lastScannedPart.current === parsed.p) {
+          if (lastScannedPart.current === parsed.chunkIndex) {
             consecutiveScans.current += 1;
             if (consecutiveScans.current >= 3 && scannedChunks.size < totalChunks!) {
               toast({ title: "Still scanning...", description: `Missing ${totalChunks! - scannedChunks.size} parts. Try showing a different QR code.` });
               consecutiveScans.current = 0; // Reset counter after showing toast
             }
           } else {
-            lastScannedPart.current = parsed.p;
+            lastScannedPart.current = parsed.chunkIndex;
             consecutiveScans.current = 1;
           }
 
@@ -170,8 +170,11 @@ export function QrScanner({ onScanSuccess }: QrScannerProps) {
     console.log('Requesting camera permission...');
     
     try {
+        // We only request the stream to check for permission.
+        // Html5Qrcode will manage the stream itself.
         const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
         console.log('Camera permission granted.');
+        // We must stop the track immediately, otherwise Html5Qrcode cannot use the camera.
         stream.getTracks().forEach(track => track.stop());
     } catch (err) {
         console.error("Camera permission error:", err);
@@ -284,3 +287,5 @@ export function QrScanner({ onScanSuccess }: QrScannerProps) {
     </div>
   );
 }
+
+    
