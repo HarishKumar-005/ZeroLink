@@ -11,8 +11,10 @@ import { useLogicStorage } from '@/hooks/use-logic-storage';
 import { SavedLogicList } from './saved-logic-list';
 import { useToast } from '@/hooks/use-toast';
 import { cn } from '@/lib/utils';
-
-const LAST_LOGIC_KEY = 'zerolink-last-active-logic';
+import { Textarea } from './ui/textarea';
+import { Button } from './ui/button';
+import { Alert, AlertDescription, AlertTitle } from './ui/alert';
+import { Lightbulb, Info } from 'lucide-react';
 
 export function ReceiverView() {
   const [activeLogic, setActiveLogic] = useState<Logic | null>(null);
@@ -22,6 +24,7 @@ export function ReceiverView() {
     motion: false,
   });
   const [isFlashing, setIsFlashing] = useState(false);
+  const [manualJson, setManualJson] = useState('');
 
   const { toast } = useToast();
   const { savedLogics, saveLogic, deleteLogic } = useLogicStorage();
@@ -29,11 +32,6 @@ export function ReceiverView() {
   
   const handleLogicUpdate = (logicToSet: Logic | null) => {
     setActiveLogic(logicToSet);
-    if (logicToSet && typeof window !== 'undefined') {
-      localStorage.setItem(LAST_LOGIC_KEY, JSON.stringify(logicToSet));
-    } else if (!logicToSet) {
-      localStorage.removeItem(LAST_LOGIC_KEY);
-    }
   };
   
   const handleLogicScanned = (scannedLogic: Logic) => {
@@ -74,22 +72,58 @@ export function ReceiverView() {
     clearLog();
   };
 
+  const handleManualLoad = () => {
+    try {
+      const parsedLogic = JSON.parse(manualJson) as Logic;
+      // Basic validation
+      if (parsedLogic.name && parsedLogic.trigger && parsedLogic.action) {
+        handleLogicScanned(parsedLogic);
+        setManualJson('');
+      } else {
+        throw new Error('Invalid logic structure.');
+      }
+    } catch (e) {
+      toast({
+        title: "Invalid JSON",
+        description: "The provided text is not valid logic JSON. Please check and try again.",
+        variant: "destructive"
+      });
+    }
+  };
+
   return (
     <div className="grid gap-6 md:grid-cols-2">
       <div className="space-y-6">
         {!activeLogic ? (
           <Card>
             <CardHeader>
-              <CardTitle>Scan Logic</CardTitle>
+              <CardTitle>Scan or Load Logic</CardTitle>
               <CardDescription>
-                Scan a ZeroLink QR code to load an automation rule.
+                Scan a ZeroLink QR code or paste JSON to load an automation rule.
               </CardDescription>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-6">
               <QrScanner onScanSuccess={handleLogicScanned} />
-               <p className="text-muted-foreground text-center italic mt-4">
-                ❕ No automation logic loaded yet. Scan a QR code or select from saved logics.
-               </p>
+              
+              <div className="space-y-2">
+                  <Label htmlFor="manual-json">Fallback: Paste Logic JSON</Label>
+                  <Textarea 
+                      id="manual-json"
+                      value={manualJson}
+                      onChange={e => setManualJson(e.target.value)}
+                      placeholder='Paste the logic JSON here if camera is unavailable...'
+                      className="font-mono text-xs"
+                  />
+                  <Button onClick={handleManualLoad} disabled={!manualJson}>Load from Text</Button>
+              </div>
+
+               <Alert>
+                  <Info className="h-4 w-4" />
+                  <AlertTitle>No Logic Loaded</AlertTitle>
+                  <AlertDescription>
+                    No automation logic is active. Scan a QR code, paste JSON, or select a rule from your saved logics to begin.
+                  </AlertDescription>
+               </Alert>
             </CardContent>
           </Card>
         ) : (
