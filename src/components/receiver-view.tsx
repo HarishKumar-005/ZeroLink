@@ -15,6 +15,7 @@ import { Textarea } from './ui/textarea';
 import { Button } from './ui/button';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { Lightbulb, Info } from 'lucide-react';
+import { Label } from './ui/label';
 
 export function ReceiverView() {
   const [activeLogic, setActiveLogic] = useState<Logic | null>(null);
