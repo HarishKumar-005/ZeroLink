@@ -11,8 +11,8 @@ const LogicSchema = z.object({
     type: z.enum(["all", "any"]),
     conditions: z.array(z.object({
       sensor: z.enum(["light", "temperature", "motion"]),
-      operator: z.enum([">", "<", "=", "!="]),
-      value: z.union([z.number(), z.boolean()])
+      operator: z.enum([">", "<", "=", "!=", "===", "!=="]),
+      value: z.union([z.string(), z.number(), z.boolean()])
     }))
   }),
   action: z.object({
@@ -65,7 +65,7 @@ export async function generateLogicAction(
       };
     }
     
-    return { logic: validationResult.data, error: null, rawJson: rawJsonResult };
+    return { logic: validationResult.data as Logic, error: null, rawJson: rawJsonResult };
   } catch (e) {
     console.error("Error generating logic:", e);
     const errorMessage = e instanceof Error ? e.message : "An unknown error occurred.";

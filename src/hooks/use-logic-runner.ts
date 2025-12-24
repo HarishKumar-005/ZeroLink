@@ -9,8 +9,13 @@ const checkCondition = (condition: Condition, sensorData: SensorData): boolean =
     switch (condition.operator) {
         case '>': return sensorValue > (condition.value as number);
         case '<': return sensorValue < (condition.value as number);
-        case '=': return sensorValue === condition.value;
-        case '!=': return sensorValue !== condition.value;
+        case '=': 
+        case '===':
+            // Coerce to string for comparison to handle "false" vs false
+            return String(sensorValue) === String(condition.value);
+        case '!=':
+        case '!==':
+            return String(sensorValue) !== String(condition.value);
         default: return false;
     }
 };

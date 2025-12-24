@@ -1,7 +1,7 @@
 export type Condition = {
   sensor: 'light' | 'temperature' | 'motion';
-  operator: '>' | '<' | '=' | '!=';
-  value: number | boolean;
+  operator: '>' | '<' | '=' | '!=' | '===' | '!==';
+  value: number | boolean | string;
 };
 
 export type Trigger = {
