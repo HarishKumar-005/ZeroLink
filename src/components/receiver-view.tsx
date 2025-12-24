@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { QrScanner } from '@/components/qr-scanner';
 import { LogicSimulator } from '@/components/logic-simulator';
@@ -10,25 +10,49 @@ import { useLogicRunner } from '@/hooks/use-logic-runner';
 import { useLogicStorage } from '@/hooks/use-logic-storage';
 import { SavedLogicList } from './saved-logic-list';
 import { useToast } from '@/hooks/use-toast';
-import { cn } from '@/lib/utils';
 import { Textarea } from './ui/textarea';
 import { Button } from './ui/button';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
-import { Lightbulb, Info } from 'lucide-react';
+import { Info, Terminal } from 'lucide-react';
 import { Label } from './ui/label';
+
+const LOCAL_STORAGE_KEY = 'zero-link-sim-state';
 
 export function ReceiverView() {
   const [activeLogic, setActiveLogic] = useState<Logic | null>(null);
+  const [showDebug, setShowDebug] = useState(false);
+  
   const [sensorData, setSensorData] = useState<SensorData>({
-    light: 250,
+    light: 50,
     temperature: 20,
     motion: false,
   });
-  const [isFlashing, setIsFlashing] = useState(false);
-  const [manualJson, setManualJson] = useState('');
 
   const { toast } = useToast();
   const { savedLogics, saveLogic, deleteLogic } = useLogicStorage();
+  
+  // Load initial sensor state from localStorage
+  useEffect(() => {
+    try {
+      const savedState = window.localStorage.getItem(LOCAL_STORAGE_KEY);
+      if (savedState) {
+        setSensorData(JSON.parse(savedState));
+      }
+    } catch (error) {
+      console.error("Could not load simulator state from localStorage", error);
+    }
+  }, []);
+
+  // Persist sensor state to localStorage on change
+  const handleSensorChange = (newSensorData: SensorData) => {
+    setSensorData(newSensorData);
+    try {
+      window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newSensorData));
+    } catch (error) {
+      console.error("Could not save simulator state to localStorage", error);
+    }
+  };
+
   const { eventLog, clearLog } = useLogicRunner(activeLogic, sensorData);
   
   const handleLogicUpdate = (logicToSet: Logic | null) => {
@@ -42,16 +66,14 @@ export function ReceiverView() {
     }
     handleLogicUpdate(scannedLogic);
 
-    // Feedback on successful scan
     toast({
-      title: "✅ Logic loaded successfully",
-      description: `Loaded: ${scannedLogic.name}`,
+      title: "✅ Logic Loaded: " + scannedLogic.name,
+      description: `Device is now simulating the loaded logic.`,
     });
+
     if (navigator.vibrate) {
-      navigator.vibrate(200);
+      navigator.vibrate(100);
     }
-    setIsFlashing(true);
-    setTimeout(() => setIsFlashing(false), 1000);
   };
   
   const handleLoadLogic = (logic: Logic) => {
@@ -73,10 +95,10 @@ export function ReceiverView() {
     clearLog();
   };
 
+  const [manualJson, setManualJson] = useState('');
   const handleManualLoad = () => {
     try {
       const parsedLogic = JSON.parse(manualJson) as Logic;
-      // Basic validation
       if (parsedLogic.name && parsedLogic.trigger && parsedLogic.action) {
         handleLogicScanned(parsedLogic);
         setManualJson('');
@@ -92,6 +114,8 @@ export function ReceiverView() {
     }
   };
 
+  const isDevelopment = process.env.NODE_ENV === 'development';
+
   return (
     <div className="grid gap-6 md:grid-cols-2">
       <div className="space-y-6">
@@ -100,7 +124,7 @@ export function ReceiverView() {
             <CardHeader>
               <CardTitle>Scan or Load Logic</CardTitle>
               <CardDescription>
-                Scan a ZeroLink QR code or paste JSON to load an automation rule.
+                Scan a ZeroLink QR code, paste JSON, or load a saved rule to start the simulation.
               </CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
@@ -113,7 +137,7 @@ export function ReceiverView() {
                       value={manualJson}
                       onChange={e => setManualJson(e.target.value)}
                       placeholder='Paste the logic JSON here if camera is unavailable...'
-                      className="font-mono text-xs"
+                      className="font-mono text-xs h-24"
                   />
                   <Button onClick={handleManualLoad} disabled={!manualJson}>Load from Text</Button>
               </div>
@@ -122,22 +146,36 @@ export function ReceiverView() {
                   <Info className="h-4 w-4" />
                   <AlertTitle>No Logic Loaded</AlertTitle>
                   <AlertDescription>
-                    No automation logic is active. Scan a QR code, paste JSON, or select a rule from your saved logics to begin.
+                    The simulator is idle. Scan a QR code, paste JSON, or select a rule from your saved logics to begin.
                   </AlertDescription>
                </Alert>
             </CardContent>
           </Card>
         ) : (
-          <LogicSimulator
-            logic={activeLogic}
-            sensorData={sensorData}
-            onSensorChange={setSensorData}
-            onSave={handleSaveCurrentLogic}
-            onClear={handleUnload}
-            eventLog={eventLog}
-            onClearLog={clearLog}
-            className={cn('transition-all duration-300', isFlashing && 'border-green-500 border-4 shadow-lg')}
-          />
+          <div className="space-y-4">
+            <LogicSimulator
+                logic={activeLogic}
+                sensorData={sensorData}
+                onSensorChange={handleSensorChange}
+                onSave={handleSaveCurrentLogic}
+                onClear={handleUnload}
+                eventLog={eventLog}
+                onClearLog={clearLog}
+            />
+             {isDevelopment && (
+                <div className="p-4 border rounded-lg bg-background">
+                    <Button variant="ghost" size="sm" onClick={() => setShowDebug(!showDebug)}>
+                        <Terminal className="mr-2 h-4 w-4" />
+                        {showDebug ? 'Hide' : 'Show'} Raw Logic
+                    </Button>
+                    {showDebug && (
+                        <pre className="mt-2 p-2 bg-muted rounded-md text-xs overflow-auto">
+                            <code>{JSON.stringify(activeLogic, null, 2)}</code>
+                        </pre>
+                    )}
+                </div>
+            )}
+          </div>
         )}
       </div>
       <div>

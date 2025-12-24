@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { type Logic, type SensorData, type Condition, type EventLogEntry } from '@/types';
+import { toast } from './use-toast';
 
 const checkCondition = (condition: Condition, sensorData: SensorData): boolean => {
     const sensorValue = sensorData[condition.sensor];
@@ -10,33 +11,33 @@ const checkCondition = (condition: Condition, sensorData: SensorData): boolean =
         case '>': return sensorValue > (condition.value as number);
         case '<': return sensorValue < (condition.value as number);
         case '=': 
-        case '===':
-            // Coerce to string for comparison to handle "false" vs false
-            return String(sensorValue) === String(condition.value);
+            return String(sensorValue).toLowerCase() === String(condition.value).toLowerCase();
         case '!=':
-        case '!==':
-            return String(sensorValue) !== String(condition.value);
+            return String(sensorValue).toLowerCase() !== String(condition.value).toLowerCase();
         default: return false;
     }
 };
 
-// Simple Web Audio API to play a beep sound
 const playBeep = () => {
     if (typeof window === 'undefined' || !window.AudioContext) return;
-    const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-    const oscillator = audioContext.createOscillator();
-    const gainNode = audioContext.createGain();
+    try {
+        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
+        const oscillator = audioContext.createOscillator();
+        const gainNode = audioContext.createGain();
 
-    oscillator.connect(gainNode);
-    gainNode.connect(audioContext.destination);
+        oscillator.connect(gainNode);
+        gainNode.connect(audioContext.destination);
 
-    oscillator.type = 'sine';
-    oscillator.frequency.setValueAtTime(440, audioContext.currentTime); // A4 note
-    gainNode.gain.setValueAtTime(0.5, audioContext.currentTime);
-    gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.5);
-    
-    oscillator.start(audioContext.currentTime);
-    oscillator.stop(audioContext.currentTime + 0.5);
+        oscillator.type = 'sine';
+        oscillator.frequency.setValueAtTime(660, audioContext.currentTime);
+        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+        gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.3);
+        
+        oscillator.start(audioContext.currentTime);
+        oscillator.stop(audioContext.currentTime + 0.3);
+    } catch (e) {
+        console.error("Audio context error:", e);
+    }
 };
 
 export const useLogicRunner = (logic: Logic | null, sensorData: SensorData) => {
@@ -51,51 +52,47 @@ export const useLogicRunner = (logic: Logic | null, sensorData: SensorData) => {
 
     const triggerAction = useCallback((logic: Logic) => {
         const { action, name } = logic;
-        addLogEntry(`Action triggered: ${action.type}`);
-
-        if (navigator.vibrate) {
-            navigator.vibrate(action.payload?.duration || 200);
-        }
+        const message = action.payload?.message || `Action '${action.type}' triggered by '${name}'`;
+        addLogEntry(message);
         playBeep();
-
-        const feedbackOverlay = document.createElement('div');
-        feedbackOverlay.className = 'flash-overlay';
-        feedbackOverlay.innerHTML = `🔔 Action Triggered: <strong>${name}</strong>`;
-        document.body.appendChild(feedbackOverlay);
-        setTimeout(() => {
-            if (document.body.contains(feedbackOverlay)) {
-                document.body.removeChild(feedbackOverlay);
-            }
-        }, 2000);
-
 
         switch (action.type) {
             case 'flashBackground':
                 const overlay = document.createElement('div');
-                overlay.className = 'fixed inset-0 text-white text-2xl font-bold flex items-center justify-center z-50 animate-fade';
-                const color = action.payload?.color || 'blue';
-                // A simple mapping for bg colors from the limited set.
-                const bgColorClass = {
-                    'red': 'bg-red-600',
-                    'green': 'bg-green-600',
-                    'blue': 'bg-blue-600'
-                }[color] || 'bg-gray-800';
+                overlay.className = 'flash-overlay';
+                overlay.innerHTML = `<span>${message}</span>`;
                 
-                overlay.classList.add(bgColorClass);
-                overlay.innerText = action.payload?.message || `Action: ${name}`;
+                const color = action.payload?.color?.toLowerCase() || 'blue';
+                const colorMap: Record<string, string> = {
+                    red: 'bg-red-600/90',
+                    green: 'bg-green-600/90',
+                    blue: 'bg-blue-600/90',
+                    yellow: 'bg-yellow-500/90',
+                };
+                overlay.classList.add(colorMap[color] || 'bg-primary/90');
                 
                 document.body.appendChild(overlay);
                 setTimeout(() => {
                     if (document.body.contains(overlay)) {
-                      document.body.removeChild(overlay);
+                        document.body.removeChild(overlay);
                     }
                 }, 1500);
+
+                if (navigator.vibrate) {
+                    navigator.vibrate(action.payload?.duration || 200);
+                }
                 break;
             case 'vibrate':
-                // The vibration is now handled in the generic feedback section above
+                if (navigator.vibrate) {
+                    navigator.vibrate(action.payload?.duration || [200, 100, 200]);
+                }
                 break;
             case 'log':
-                console.log('LOG ACTION:', action.payload?.message || 'Logic action logged.');
+                console.log('LOG ACTION:', message);
+                toast({
+                    title: '✅ Simulated Log',
+                    description: message,
+                })
                 break;
         }
     }, [addLogEntry]);
