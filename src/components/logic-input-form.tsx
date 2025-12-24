@@ -2,7 +2,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useForm } from "react-hook-form";
+import { useForm, type UseFormReturn } from "react-hook-form";
 import { z } from "zod";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,29 +18,36 @@ import { useToast } from "@/hooks/use-toast";
 import { generateLogicAction } from "@/lib/actions";
 import { type Logic } from "@/types";
 import { Sparkles } from "lucide-react";
+import React from "react";
 
 const FormSchema = z.object({
   naturalLanguage: z.string().min(10, {
     message: "Description must be at least 10 characters.",
   }),
 });
+type FormValues = z.infer<typeof FormSchema>;
 
 interface LogicInputFormProps {
   onSubmit: (logic: Logic | null, error: string | null, rawJson: string | null) => void;
   setIsLoading: (loading: boolean) => void;
+  formRef: React.MutableRefObject<UseFormReturn<FormValues> | null>;
 }
 
-export function LogicInputForm({ onSubmit, setIsLoading }: LogicInputFormProps) {
+export function LogicInputForm({ onSubmit, setIsLoading, formRef }: LogicInputFormProps) {
   const { toast } = useToast();
-  const form = useForm<z.infer<typeof FormSchema>>({
+  const form = useForm<FormValues>({
     resolver: zodResolver(FormSchema),
     defaultValues: {
       naturalLanguage: "",
     },
   });
 
-  async function handleFormSubmit(data: z.infer<typeof FormSchema>) {
+  // Expose the form instance to the parent component
+  React.useImperativeHandle(formRef, () => form);
+
+  async function handleFormSubmit(data: FormValues) {
     setIsLoading(true);
+    onSubmit(null, null, null); // Clear previous results
     const { logic, error, rawJson } = await generateLogicAction(data.naturalLanguage);
     
     if (error && !logic) {

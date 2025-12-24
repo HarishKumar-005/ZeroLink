@@ -9,6 +9,17 @@ import { type Logic } from '@/types';
 import { Skeleton } from './ui/skeleton';
 import { Label } from './ui/label';
 import { Switch } from './ui/switch';
+import { Button } from './ui/button';
+import { Moon, Flame } from 'lucide-react';
+import type { UseFormReturn } from 'react-hook-form';
+import { z } from 'zod';
+
+const FormSchema = z.object({
+  naturalLanguage: z.string().min(10, {
+    message: "Description must be at least 10 characters.",
+  }),
+});
+type FormValues = z.infer<typeof FormSchema>;
 
 export function SenderView() {
   const [generatedLogic, setGeneratedLogic] = useState<Logic | null>(null);
@@ -16,6 +27,7 @@ export function SenderView() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showDebug, setShowDebug] = useState(false);
+  const formRef = useRef<UseFormReturn<FormValues>>(null);
 
   const qrDisplayRef = useRef<HTMLDivElement>(null);
   const isDevelopment = process.env.NODE_ENV === 'development';
@@ -38,6 +50,13 @@ export function SenderView() {
     }
   };
 
+  const handlePrefillClick = (prompt: string) => {
+    if (formRef.current) {
+      formRef.current.setValue('naturalLanguage', prompt);
+      formRef.current.handleSubmit(formRef.current.getValues)();
+    }
+  };
+
   return (
     <Card>
       <CardHeader>
@@ -47,8 +66,24 @@ export function SenderView() {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-6">
-        <LogicInputForm onSubmit={handleFormSubmit} setIsLoading={setIsLoading} />
+        <LogicInputForm 
+          onSubmit={handleFormSubmit} 
+          setIsLoading={setIsLoading} 
+          formRef={formRef}
+        />
         
+        <div className="space-y-2">
+            <Label className="text-xs text-muted-foreground">Or try a demo prompt:</Label>
+            <div className="flex gap-2">
+                <Button variant="outline" size="sm" onClick={() => handlePrefillClick("If it's dark and motion is detected, turn on a nightlight.")}>
+                    <Moon className="mr-2 h-4 w-4"/> Nightlight trigger
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => handlePrefillClick("If temperature is above 45 and light is high, show a heat warning.")}>
+                    <Flame className="mr-2 h-4 w-4"/> Heat warning
+                </Button>
+            </div>
+        </div>
+
         {isDevelopment && (
           <div className="flex items-center space-x-2">
             <Switch id="debug-mode" checked={showDebug} onCheckedChange={setShowDebug} />
