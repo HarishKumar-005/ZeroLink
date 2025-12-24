@@ -1,6 +1,6 @@
 export type Condition = {
   sensor: 'light' | 'temperature' | 'motion';
-  operator: '>' | '<' | '=' | '!=' | '===' | '!==';
+  operator: '>' | '<' | '=' | '!=';
   value: number | boolean | string;
 };
 
