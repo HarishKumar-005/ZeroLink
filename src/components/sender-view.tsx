@@ -53,9 +53,20 @@ export function SenderView() {
   const handlePrefillClick = (prompt: string) => {
     if (formRef.current) {
       formRef.current.setValue('naturalLanguage', prompt);
-      formRef.current.handleSubmit(formRef.current.getValues)();
+      // Create a submit handler on the fly to pass to handleSubmit
+      const submitHandler = formRef.current.handleSubmit((data) => {
+        // Find the actual form element and trigger its submit event.
+        // This is a bit of a workaround to trigger the LogicInputForm's own onSubmit.
+        // A better long-term solution might involve a more tightly coupled state management.
+        const formElement = document.querySelector('form');
+        if (formElement) {
+          formElement.requestSubmit();
+        }
+      });
+      submitHandler();
     }
   };
+
 
   return (
     <Card>
