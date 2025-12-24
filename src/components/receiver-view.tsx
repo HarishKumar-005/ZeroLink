@@ -16,7 +16,8 @@ import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { Info, Terminal } from 'lucide-react';
 import { Label } from './ui/label';
 
-const LOCAL_STORAGE_KEY = 'zero-link-sim-state';
+const SENSOR_STORAGE_KEY = 'zero-link-sim-sensors';
+const LOGIC_STORAGE_KEY = 'zero-link-sim-active-logic';
 
 export function ReceiverView() {
   const [activeLogic, setActiveLogic] = useState<Logic | null>(null);
@@ -31,15 +32,19 @@ export function ReceiverView() {
   const { toast } = useToast();
   const { savedLogics, saveLogic, deleteLogic } = useLogicStorage();
   
-  // Load initial sensor state from localStorage
+  // Load initial state from localStorage
   useEffect(() => {
     try {
-      const savedState = window.localStorage.getItem(LOCAL_STORAGE_KEY);
-      if (savedState) {
-        setSensorData(JSON.parse(savedState));
+      const savedSensorState = window.localStorage.getItem(SENSOR_STORAGE_KEY);
+      if (savedSensorState) {
+        setSensorData(JSON.parse(savedSensorState));
+      }
+      const savedLogicState = window.localStorage.getItem(LOGIC_STORAGE_KEY);
+      if (savedLogicState) {
+        setActiveLogic(JSON.parse(savedLogicState));
       }
     } catch (error) {
-      console.error("Could not load simulator state from localStorage", error);
+      console.error("Could not load state from localStorage", error);
     }
   }, []);
 
@@ -47,9 +52,9 @@ export function ReceiverView() {
   const handleSensorChange = (newSensorData: SensorData) => {
     setSensorData(newSensorData);
     try {
-      window.localStorage.setItem(LOCAL_STORAGE_KEY, JSON.stringify(newSensorData));
+      window.localStorage.setItem(SENSOR_STORAGE_KEY, JSON.stringify(newSensorData));
     } catch (error) {
-      console.error("Could not save simulator state to localStorage", error);
+      console.error("Could not save sensor state to localStorage", error);
     }
   };
 
@@ -57,6 +62,15 @@ export function ReceiverView() {
   
   const handleLogicUpdate = (logicToSet: Logic | null) => {
     setActiveLogic(logicToSet);
+    try {
+      if (logicToSet) {
+        window.localStorage.setItem(LOGIC_STORAGE_KEY, JSON.stringify(logicToSet));
+      } else {
+        window.localStorage.removeItem(LOGIC_STORAGE_KEY);
+      }
+    } catch (error) {
+        console.error("Could not save logic state to localStorage", error);
+    }
   };
   
   const handleLogicScanned = (scannedLogic: Logic) => {

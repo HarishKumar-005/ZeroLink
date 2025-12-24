@@ -52,7 +52,10 @@ export const useLogicRunner = (logic: Logic | null, sensorData: SensorData) => {
 
     const triggerAction = useCallback((logic: Logic) => {
         const { action, name } = logic;
-        const message = action.payload?.message || `Action '${action.type}' triggered by '${name}'`;
+        const defaultMessage = `Action '${action.type}' triggered by '${name}'`;
+        const message = action.payload?.message || defaultMessage;
+        
+        // Log every action for consistent feedback
         addLogEntry(message);
         playBeep();
 
@@ -86,6 +89,7 @@ export const useLogicRunner = (logic: Logic | null, sensorData: SensorData) => {
                 if (navigator.vibrate) {
                     navigator.vibrate(action.payload?.duration || [200, 100, 200]);
                 }
+                // Visual feedback for vibrate is handled by the log entry
                 break;
             case 'log':
                 console.log('LOG ACTION:', message);
