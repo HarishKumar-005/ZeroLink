@@ -38,45 +38,54 @@ const prompt = ai.definePrompt({
   name: 'convertNaturalLanguageToLogicPrompt',
   input: {schema: ConvertNaturalLanguageToLogicInputSchema},
   output: {schema: ConvertNaturalLanguageToLogicOutputSchema},
-  prompt: `You are the ZeroLink Logic Generator.
+  prompt: `You are an AI assistant for the ZeroLink automation project.
 
-Given a natural language instruction from the user, output a JSON block in this exact format that can be executed in a sensor-based automation system. Return ONLY the JSON as a string.
+Your job is to convert natural language into a valid JSON automation logic block.
 
---- JSON SCHEMA ---
-{
-  "name": "Short title of the logic",
-  "trigger": {
-    "type": "all" or "any",
-    "conditions": [
-      {
-        "sensor": "'light' | 'temperature' | 'motion'",
-        "operator": "'>' | '<' | '=' | '!='",
-        "value": "number | boolean"
+⚠️ Output Format Rules:
+- Return ONLY a single JSON object with the structure:
+  {
+    "name": string,
+    "trigger": {
+      "type": "all" | "any",
+      "conditions": [
+        {
+          "sensor": "temperature" | "light" | "motion",
+          "operator": ">" | "<" | "=" | "!=",
+          "value": number | boolean
+        }
+      ]
+    },
+    "action": {
+      "type": "log" | "flashBackground" | "vibrate",
+      "payload"?: {
+        "message"?: string,
+        "color"?: string,
+        "duration"?: number
       }
+    }
+  }
+
+❌ Do NOT return any explanation or markdown.
+✅ Output ONLY raw JSON in the 'logicJson' field.
+
+- For the "motion" sensor, the value must be a boolean (true for detected, false for not detected).
+- For triggers with multiple conditions, use "type": "all" if all must be true, and "any" if any one can be true.
+
+💬 Example Input: "If the temperature is more than 30°C, vibrate."
+✅ Expected Output in 'logicJson' field:
+{
+  "name": "Heat Alert",
+  "trigger": {
+    "type": "all",
+    "conditions": [
+      { "sensor": "temperature", "operator": ">", "value": 30 }
     ]
   },
   "action": {
-    "type": "'flashBackground' | 'vibrate' | 'log'",
-    "payload": {
-      "message"?: "Message to show",
-      "color"?: "'red' | 'green' | 'blue' (only for flashBackground)",
-      "duration"?: "number (milliseconds, for vibrate)"
-    }
+    "type": "vibrate"
   }
 }
---- END SCHEMA ---
-
-RULES:
-- "name" must be concise and readable.
-- For triggers with multiple conditions, use "type": "all" if all must be true, and "any" if any one can be true.
-- If a user says something like “when it’s dark,” translate to { "sensor": "light", "operator": "<", "value": 100 }.
-- For the "motion" sensor, the value must be a boolean (true for detected, false for not detected). The operator is usually "=".
-- For demo visibility, prefer "flashBackground" or "vibrate" over just "log".
-- Return ONLY the raw JSON object as a string in the 'logicJson' field. Do not include markdown or explanations.
-
-EXAMPLE:
-Input: "If temperature is over 40 and there's no motion, show a warning."
-Output: { "name": "Overheat Warning", "trigger": { "type": "all", "conditions": [ { "sensor": "temperature", "operator": ">", "value": 40 }, { "sensor": "motion", "operator": "=", "value": false } ] }, "action": { "type": "flashBackground", "payload": { "color": "red", "message": "⚠️ Overheat Detected!" } } }
 
 Now, convert the following natural language description.
 
