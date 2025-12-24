@@ -6,7 +6,7 @@ import { Html5Qrcode, type Html5QrcodeError, type Html5QrcodeResult } from 'html
 import { type Logic } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from './ui/button';
-import { Camera, RefreshCw, Loader2, CheckCircle } from 'lucide-react';
+import { Camera, RefreshCw, Loader2, CheckCircle, X } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from './ui/card';
@@ -59,7 +59,8 @@ export function QrScanner({ onScanSuccess }: QrScannerProps) {
 
 
   const stopScan = useCallback(async (isSuccess = false) => {
-    if (scannerRef.current && scannerRef.current.isScanning) {
+    const wasScanning = scannerRef.current && scannerRef.current.isScanning;
+    if (wasScanning) {
       try {
         await scannerRef.current.stop();
         console.log('Scanner stopped.');
@@ -68,7 +69,8 @@ export function QrScanner({ onScanSuccess }: QrScannerProps) {
       }
     }
     setCameraState('idle');
-    if (!isSuccess && scannedChunks.size > 0) {
+    // Only show cancellation toast if we were actively scanning and it wasn't a success
+    if (wasScanning && !isSuccess) {
       toast({
         title: "Scan Stopped",
         description: "❌ Scan cancelled. All progress has been reset.",
@@ -76,12 +78,15 @@ export function QrScanner({ onScanSuccess }: QrScannerProps) {
       });
     }
     resetScanState();
-  }, [resetScanState, toast, scannedChunks.size]);
+  }, [resetScanState, toast]);
 
   useEffect(() => {
     // Cleanup on unmount
     return () => {
-      stopScan();
+      // Ensure we don't show a toast on simple unmount
+      if (scannerRef.current && scannerRef.current.isScanning) {
+        stopScan(false);
+      }
     };
   }, [stopScan]);
 
@@ -123,8 +128,7 @@ export function QrScanner({ onScanSuccess }: QrScannerProps) {
     console.log('Requesting camera permission...');
     
     try {
-        // Check for cameras, which requests permission
-        await Html5Qrcode.getCameras();
+        await navigator.mediaDevices.getUserMedia({ video: true });
         console.log('Camera permission granted.');
     } catch (err) {
         console.error("Camera permission error:", err);
@@ -215,7 +219,10 @@ export function QrScanner({ onScanSuccess }: QrScannerProps) {
             {cameraState === 'loading' ? 'Starting...' : 'Start Scanning'}
           </Button>
         ) : (
-          <Button onClick={() => stopScan(false)} variant="destructive">Stop Scanning</Button>
+          <Button onClick={() => stopScan(false)} variant="destructive">
+              <X className="mr-2 h-4 w-4" />
+              Stop Scanning
+          </Button>
         )}
 
         {isScanning && totalChunks && totalChunks > 1 && (
@@ -239,5 +246,7 @@ export function QrScanner({ onScanSuccess }: QrScannerProps) {
     </div>
   );
 }
+
+    
 
     
