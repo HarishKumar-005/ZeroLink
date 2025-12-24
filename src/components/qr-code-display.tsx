@@ -20,10 +20,10 @@ interface QrCodeDisplayProps {
 const CHUNK_SIZE = 250; // A reasonable size for QR codes
 
 type QrChunk = {
-  sessionId: string; // s
-  chunkIndex: number; // p
-  totalChunks: number; // t
-  data: string; // d
+  sessionId: string;
+  chunkIndex: number;
+  totalChunks: number;
+  data: string;
 }
 
 export function QrCodeDisplay({ logic }: QrCodeDisplayProps) {
@@ -36,11 +36,10 @@ export function QrCodeDisplay({ logic }: QrCodeDisplayProps) {
   const chunks = useMemo(() => {
     const logicString = JSON.stringify(logic);
     
-    // Estimate payload overhead: {"sessionId":"...","chunkIndex":99,"totalChunks":99,"data":""}
-    const overhead = JSON.stringify({sessionId: sessionId, chunkIndex: 99, totalChunks: 99, data:''}).length;
+    const overhead = JSON.stringify({ sessionId: "", chunkIndex: 99, totalChunks: 99, data: "" }).length;
     const effectiveChunkSize = CHUNK_SIZE - overhead;
     
-    const numChunks = Math.ceil(logicString.length / effectiveChunkSize);
+    const numChunks = Math.ceil(logicString.length / effectiveChunkSize) || 1;
     
     const newChunks = [];
     for (let i = 0; i < numChunks; i++) {
@@ -52,10 +51,6 @@ export function QrCodeDisplay({ logic }: QrCodeDisplayProps) {
         data: content,
       };
       newChunks.push(JSON.stringify(chunk));
-    }
-    // If there are no chunks (empty logic?), create one to avoid errors.
-    if (newChunks.length === 0) {
-        newChunks.push(JSON.stringify({ sessionId, chunkIndex: 1, totalChunks: 1, data: '{}' } as QrChunk));
     }
     return newChunks;
   }, [logic, sessionId]);
