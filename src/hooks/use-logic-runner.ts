@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { type Logic, type SensorData, type Condition, type EventLogEntry } from '@/types';
+import { type Logic, type SensorData, type Condition, type EventLogEntry, type DeviceStates } from '@/types';
 import { toast } from './use-toast';
 
 const checkCondition = (condition: Condition, sensorData: SensorData): boolean => {
@@ -40,7 +40,11 @@ const playBeep = () => {
     }
 };
 
-export const useLogicRunner = (logic: Logic | null, sensorData: SensorData) => {
+export const useLogicRunner = (
+    logic: Logic | null, 
+    sensorData: SensorData,
+    onDeviceStateChange: (device: keyof DeviceStates, state: boolean) => void
+) => {
     const [eventLog, setEventLog] = useState<EventLogEntry[]>([]);
     const lastTriggerTime = useRef<number>(0);
     
@@ -53,17 +57,20 @@ export const useLogicRunner = (logic: Logic | null, sensorData: SensorData) => {
     const triggerAction = useCallback((logic: Logic) => {
         const { action, name } = logic;
         const defaultMessage = `Action '${action.type}' triggered by '${name}'`;
-        const message = action.payload?.message || defaultMessage;
         
-        // Log every action for consistent feedback
-        addLogEntry(message);
+        // Log every action for consistent feedback, unless it's a toggle with a custom message
+        if (action.type !== 'toggle') {
+            const message = action.payload?.message || defaultMessage;
+            addLogEntry(message);
+        }
         playBeep();
 
         switch (action.type) {
             case 'flashBackground':
+                const flashMessage = action.payload?.message || defaultMessage;
                 const overlay = document.createElement('div');
                 overlay.className = 'flash-overlay';
-                overlay.innerHTML = `<span>${message}</span>`;
+                overlay.innerHTML = `<span>${flashMessage}</span>`;
                 
                 const color = action.payload?.color?.toLowerCase() || 'blue';
                 const colorMap: Record<string, string> = {
@@ -86,20 +93,35 @@ export const useLogicRunner = (logic: Logic | null, sensorData: SensorData) => {
                 }
                 break;
             case 'vibrate':
+                 addLogEntry("📳 Device is vibrating...");
                 if (navigator.vibrate) {
                     navigator.vibrate(action.payload?.duration || [200, 100, 200]);
                 }
-                // Visual feedback for vibrate is handled by the log entry
                 break;
             case 'log':
-                console.log('LOG ACTION:', message);
+                const logMessage = action.payload?.message || defaultMessage;
+                 addLogEntry(`✅ Simulated Log: ${logMessage}`);
+                console.log('LOG ACTION:', logMessage);
                 toast({
                     title: '✅ Simulated Log',
-                    description: message,
+                    description: logMessage,
                 })
                 break;
+            case 'toggle':
+                const { device, state } = action.payload || {};
+                if (device && state) {
+                    const newState = state === 'on';
+                    onDeviceStateChange(device, newState);
+                    const status = newState ? "ON" : "OFF";
+                    const icon = newState ? "🟢" : "🔴";
+                    addLogEntry(`${icon} Device '${device}' was turned ${status}.`);
+                } else {
+                    console.warn("Invalid toggle action: missing device or state", action.payload);
+                    addLogEntry(`⚠️ Invalid toggle action received.`);
+                }
+                break;
         }
-    }, [addLogEntry]);
+    }, [addLogEntry, onDeviceStateChange]);
 
     useEffect(() => {
         if (typeof window === 'undefined' || !logic) return;

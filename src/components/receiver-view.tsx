@@ -5,7 +5,7 @@ import { useState, useEffect } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { QrScanner } from '@/components/qr-scanner';
 import { LogicSimulator } from '@/components/logic-simulator';
-import { type Logic, type SensorData } from '@/types';
+import { type Logic, type SensorData, type DeviceStates } from '@/types';
 import { useLogicRunner } from '@/hooks/use-logic-runner';
 import { useLogicStorage } from '@/hooks/use-logic-storage';
 import { SavedLogicList } from './saved-logic-list';
@@ -18,6 +18,7 @@ import { Label } from './ui/label';
 
 const SENSOR_STORAGE_KEY = 'zero-link-sim-sensors';
 const LOGIC_STORAGE_KEY = 'zero-link-sim-active-logic';
+const DEVICE_STATE_STORAGE_KEY = 'zero-link-sim-device-states';
 
 export function ReceiverView() {
   const [activeLogic, setActiveLogic] = useState<Logic | null>(null);
@@ -29,6 +30,13 @@ export function ReceiverView() {
     motion: false,
   });
 
+  const [deviceStates, setDeviceStates] = useState<DeviceStates>({
+    fan: false,
+    light: false,
+    pump: false,
+    siren: false,
+  });
+
   const { toast } = useToast();
   const { savedLogics, saveLogic, deleteLogic } = useLogicStorage();
   
@@ -36,40 +44,49 @@ export function ReceiverView() {
   useEffect(() => {
     try {
       const savedSensorState = window.localStorage.getItem(SENSOR_STORAGE_KEY);
-      if (savedSensorState) {
-        setSensorData(JSON.parse(savedSensorState));
-      }
+      if (savedSensorState) setSensorData(JSON.parse(savedSensorState));
+
       const savedLogicState = window.localStorage.getItem(LOGIC_STORAGE_KEY);
-      if (savedLogicState) {
-        setActiveLogic(JSON.parse(savedLogicState));
-      }
+      if (savedLogicState) setActiveLogic(JSON.parse(savedLogicState));
+      
+      const savedDeviceState = window.localStorage.getItem(DEVICE_STATE_STORAGE_KEY);
+      if (savedDeviceState) setDeviceStates(JSON.parse(savedDeviceState));
+
     } catch (error) {
       console.error("Could not load state from localStorage", error);
     }
   }, []);
 
+  const persistState = (key: string, data: any) => {
+     try {
+      window.localStorage.setItem(key, JSON.stringify(data));
+    } catch (error) {
+      console.error(`Could not save state to localStorage (key: ${key})`, error);
+    }
+  }
+
   // Persist sensor state to localStorage on change
   const handleSensorChange = (newSensorData: SensorData) => {
     setSensorData(newSensorData);
-    try {
-      window.localStorage.setItem(SENSOR_STORAGE_KEY, JSON.stringify(newSensorData));
-    } catch (error) {
-      console.error("Could not save sensor state to localStorage", error);
-    }
+    persistState(SENSOR_STORAGE_KEY, newSensorData);
+  };
+  
+  const handleDeviceStateChange = (device: keyof DeviceStates, state: boolean) => {
+    setDeviceStates(prev => {
+        const newStates = { ...prev, [device]: state };
+        persistState(DEVICE_STATE_STORAGE_KEY, newStates);
+        return newStates;
+    });
   };
 
-  const { eventLog, clearLog } = useLogicRunner(activeLogic, sensorData);
+  const { eventLog, clearLog } = useLogicRunner(activeLogic, sensorData, handleDeviceStateChange);
   
   const handleLogicUpdate = (logicToSet: Logic | null) => {
     setActiveLogic(logicToSet);
-    try {
-      if (logicToSet) {
-        window.localStorage.setItem(LOGIC_STORAGE_KEY, JSON.stringify(logicToSet));
-      } else {
-        window.localStorage.removeItem(LOGIC_STORAGE_KEY);
-      }
-    } catch (error) {
-        console.error("Could not save logic state to localStorage", error);
+    if (logicToSet) {
+      persistState(LOGIC_STORAGE_KEY, logicToSet);
+    } else {
+      window.localStorage.removeItem(LOGIC_STORAGE_KEY);
     }
   };
   
@@ -170,6 +187,7 @@ export function ReceiverView() {
             <LogicSimulator
                 logic={activeLogic}
                 sensorData={sensorData}
+                deviceStates={deviceStates}
                 onSensorChange={handleSensorChange}
                 onSave={handleSaveCurrentLogic}
                 onClear={handleUnload}

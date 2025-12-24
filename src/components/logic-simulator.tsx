@@ -1,17 +1,19 @@
 
 "use client";
 
-import { type Logic, type SensorData, type EventLogEntry } from "@/types";
+import { type Logic, type SensorData, type EventLogEntry, type DeviceStates } from "@/types";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
-import { Save, Trash2, Thermometer, Sun, Accessibility } from "lucide-react";
+import { Save, Trash2 } from "lucide-react";
 import { EventLog } from "./event-log";
 import { cn } from "@/lib/utils";
 import { DeviceCard } from "./ui/device-card";
+import { DeviceStateCard } from "./ui/device-state-card";
 
 interface LogicSimulatorProps {
   logic: Logic;
   sensorData: SensorData;
+  deviceStates: DeviceStates;
   onSensorChange: (data: SensorData) => void;
   onSave: () => void;
   onClear: () => void;
@@ -23,6 +25,7 @@ interface LogicSimulatorProps {
 export function LogicSimulator({
   logic,
   sensorData,
+  deviceStates,
   onSensorChange,
   onSave,
   onClear,
@@ -38,27 +41,41 @@ export function LogicSimulator({
                 Simulating: <span className="font-semibold text-primary">{logic.name}</span>
             </p>
         </div>
-
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <DeviceCard
-                sensorType="temperature"
-                value={sensorData.temperature}
-                onValueChange={(value) => onSensorChange({ ...sensorData, temperature: value as number })}
-                logic={logic}
-            />
-            <DeviceCard
-                sensorType="light"
-                value={sensorData.light}
-                onValueChange={(value) => onSensorChange({ ...sensorData, light: value as number })}
-                logic={logic}
-            />
-            <DeviceCard
-                sensorType="motion"
-                value={sensorData.motion}
-                onValueChange={(value) => onSensorChange({ ...sensorData, motion: value as boolean })}
-                logic={logic}
-            />
+        
+        <div>
+            <h3 className="text-lg font-semibold mb-2 text-center md:text-left">Inputs (Sensors)</h3>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <DeviceCard
+                    sensorType="temperature"
+                    value={sensorData.temperature}
+                    onValueChange={(value) => onSensorChange({ ...sensorData, temperature: value as number })}
+                    logic={logic}
+                />
+                <DeviceCard
+                    sensorType="light"
+                    value={sensorData.light}
+                    onValueChange={(value) => onSensorChange({ ...sensorData, light: value as number })}
+                    logic={logic}
+                />
+                <DeviceCard
+                    sensorType="motion"
+                    value={sensorData.motion}
+                    onValueChange={(value) => onSensorChange({ ...sensorData, motion: value as boolean })}
+                    logic={logic}
+                />
+            </div>
         </div>
+
+        <div>
+            <h3 className="text-lg font-semibold mb-2 text-center md:text-left">Outputs (Virtual Devices)</h3>
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+                <DeviceStateCard device="light" state={deviceStates.light} />
+                <DeviceStateCard device="fan" state={deviceStates.fan} />
+                <DeviceStateCard device="pump" state={deviceStates.pump} />
+                <DeviceStateCard device="siren" state={deviceStates.siren} />
+            </div>
+        </div>
+
 
       <EventLog log={eventLog} onClearLog={onClearLog} />
 

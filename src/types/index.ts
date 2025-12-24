@@ -10,11 +10,16 @@ export type Trigger = {
 };
 
 export type Action = {
-  type: 'flashBackground' | 'vibrate' | 'log';
+  type: 'flashBackground' | 'vibrate' | 'log' | 'toggle';
   payload?: {
+    // For flashBackground
     color?: string;
     message?: string;
-    duration?: number; // for vibration
+    duration?: number;
+
+    // For toggle
+    device?: 'light' | 'fan' | 'pump' | 'siren';
+    state?: 'on' | 'off';
   };
 };
 
@@ -30,6 +35,13 @@ export type SensorData = {
   temperature: number;
   motion: boolean;
 };
+
+export type DeviceStates = {
+  fan: boolean;
+  light: boolean;
+  pump: boolean;
+  siren: boolean;
+}
 
 export type EventLogEntry = {
   id: string;

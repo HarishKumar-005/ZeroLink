@@ -16,11 +16,19 @@ const LogicSchema = z.object({
     }))
   }),
   action: z.object({
-    type: z.enum(["flashBackground", "vibrate", "log"]),
+    type: z.enum(["flashBackground", "vibrate", "log", "toggle"]),
     payload: z.object({
-        color: z.string().optional(),
+        // Common
         message: z.string().optional(),
-        duration: z.number().optional()
+        
+        // For flashBackground
+        color: z.string().optional(),
+        duration: z.number().optional(),
+
+        // For toggle
+        device: z.enum(["light", "fan", "pump", "siren"]).optional(),
+        state: z.enum(["on", "off"]).optional(),
+
     }).optional()
   })
 });
