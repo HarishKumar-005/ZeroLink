@@ -1,7 +1,7 @@
 
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { QrScanner } from '@/components/qr-scanner';
 import { LogicSimulator } from '@/components/logic-simulator';
@@ -27,27 +27,6 @@ export function ReceiverView() {
   const { savedLogics, saveLogic, deleteLogic } = useLogicStorage();
   const { eventLog, clearLog } = useLogicRunner(activeLogic, sensorData);
   
-  // Auto-load previously scanned logic on mount
-  useEffect(() => {
-    if (!activeLogic && typeof window !== 'undefined') {
-      const savedLogicJson = localStorage.getItem(LAST_LOGIC_KEY);
-      if (savedLogicJson) {
-        try {
-          const savedLogic = JSON.parse(savedLogicJson) as Logic;
-          setActiveLogic(savedLogic);
-          toast({
-            title: "Logic Loaded",
-            description: `✅ Loaded previously saved automation: ${savedLogic.name}`,
-          });
-        } catch (e) {
-          console.error("Failed to parse saved logic", e);
-          localStorage.removeItem(LAST_LOGIC_KEY);
-        }
-      }
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); 
-
   const handleLogicUpdate = (logicToSet: Logic | null) => {
     setActiveLogic(logicToSet);
     if (logicToSet && typeof window !== 'undefined') {
@@ -78,6 +57,10 @@ export function ReceiverView() {
   
   const handleLoadLogic = (logic: Logic) => {
     handleLogicUpdate(logic);
+    toast({
+        title: "Logic Loaded",
+        description: `✅ Loaded: ${logic.name}`,
+    });
   }
 
   const handleSaveCurrentLogic = async () => {
@@ -105,7 +88,7 @@ export function ReceiverView() {
             <CardContent>
               <QrScanner onScanSuccess={handleLogicScanned} />
                <p className="text-muted-foreground text-center italic mt-4">
-                No logic loaded. Scan a QR code to begin automation.
+                ❕ No automation logic loaded yet. Scan a QR code or select from saved logics.
                </p>
             </CardContent>
           </Card>
