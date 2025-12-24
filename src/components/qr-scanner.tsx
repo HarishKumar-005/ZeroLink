@@ -6,16 +6,24 @@ import { Html5Qrcode, type Html5QrcodeError, type Html5QrcodeResult } from 'html
 import { type Logic } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from './ui/button';
-import { Camera, RefreshCw, Loader2, CheckCircle, X, ShieldAlert } from 'lucide-react';
+import { Camera, RefreshCw, Loader2, X, ShieldAlert, PackageCheck } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from './ui/card';
+import { Progress } from './ui/progress';
 
 interface QrScannerProps {
   onScanSuccess: (logic: Logic) => void;
 }
 
 type CameraState = 'idle' | 'loading' | 'streaming' | 'denied' | 'error' | 'unsupported';
+
+type QrChunk = {
+  s: string; // sessionId
+  p: number; // part index
+  t: number; // total parts
+  d: string; // data
+}
 
 const qrboxFunction = (viewfinderWidth: number, viewfinderHeight: number) => {
   const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
@@ -30,18 +38,26 @@ export function QrScanner({ onScanSuccess }: QrScannerProps) {
   const { toast } = useToast();
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const [cameraState, setCameraState] = useState<CameraState>('idle');
+  
+  // State for multi-part scan
+  const [scanSessionId, setScanSessionId] = useState<string | null>(null);
   const [scannedChunks, setScannedChunks] = useState<Map<number, string>>(new Map());
   const [totalChunks, setTotalChunks] = useState<number | null>(null);
-
+  const lastScannedPart = useRef<number | null>(null);
+  const consecutiveScans = useRef<number>(0);
+  
   const resetScanState = useCallback(() => {
+    setScanSessionId(null);
     setScannedChunks(new Map());
     setTotalChunks(null);
+    lastScannedPart.current = null;
+    consecutiveScans.current = 0;
   }, []);
 
   const processAndFinalize = useCallback(() => {
-    if (totalChunks === null || scannedChunks.size !== totalChunks) {
-        toast({ title: 'Incomplete Scan', description: `Missing ${totalChunks! - scannedChunks.size} parts. Please scan all QR codes.`, variant: 'destructive'});
-        return;
+    if (!totalChunks || scannedChunks.size !== totalChunks) {
+      toast({ title: 'Incomplete Scan', description: 'Some parts are missing. Please try scanning the remaining QR codes.', variant: 'destructive'});
+      return;
     }
 
     const sortedChunks = Array.from(scannedChunks.entries()).sort((a, b) => a[0] - b[0]);
@@ -50,13 +66,18 @@ export function QrScanner({ onScanSuccess }: QrScannerProps) {
     try {
       const logic = JSON.parse(fullString) as Logic;
       onScanSuccess(logic);
-      stopScan(true);
+      stopScan(true); // Success
     } catch (e) {
-      toast({ title: 'Scan Error', description: 'Failed to parse combined QR data. The parts may be from different logics.', variant: 'destructive' });
+      toast({ title: 'Assembly Error', description: 'Failed to parse combined QR data. The parts may be from different logics.', variant: 'destructive' });
       resetScanState();
     }
-  }, [scannedChunks, totalChunks, onScanSuccess, toast, resetScanState]);
+  }, [scannedChunks, totalChunks, onScanSuccess, resetScanState, toast]);
 
+  useEffect(() => {
+    if (totalChunks && scannedChunks.size === totalChunks) {
+        processAndFinalize();
+    }
+  }, [scannedChunks, totalChunks, processAndFinalize]);
 
   const stopScan = useCallback(async (isSuccess = false) => {
     const wasScanning = scannerRef.current && scannerRef.current.isScanning;
@@ -81,7 +102,6 @@ export function QrScanner({ onScanSuccess }: QrScannerProps) {
   useEffect(() => {
     // Cleanup on unmount
     return () => {
-      // Ensure we don't show a toast on simple unmount
       if (scannerRef.current && scannerRef.current.isScanning) {
         stopScan(true); // Treat unmount as a successful stop to avoid the toast
       }
@@ -89,33 +109,51 @@ export function QrScanner({ onScanSuccess }: QrScannerProps) {
   }, [stopScan]);
 
   const handleScanSuccess = (decodedText: string, result: Html5QrcodeResult) => {
-    const chunkMatch = decodedText.match(/^\[(\d+)\/(\d+)\]/);
-    if (chunkMatch) {
-      const part = parseInt(chunkMatch[1], 10);
-      const total = parseInt(chunkMatch[2], 10);
-      const content = decodedText.substring(chunkMatch[0].length);
+    try {
+      const parsed = JSON.parse(decodedText) as QrChunk;
+      // It's a structured chunk
+      if (parsed.s && parsed.p && parsed.t && parsed.d) {
+          
+          if (scanSessionId === null) {
+              // First chunk of a new session
+              setScanSessionId(parsed.s);
+              setTotalChunks(parsed.t);
+              toast({ description: `Multipart logic detected. Total parts: ${parsed.t}.` });
+          } else if (scanSessionId !== parsed.s) {
+              toast({ title: 'Scan Mismatch', description: 'This QR code is from a different logic. Please reset and start over.', variant: 'destructive' });
+              return;
+          }
+          
+          if (!scannedChunks.has(parsed.p)) {
+            setScannedChunks(new Map(scannedChunks.set(parsed.p, parsed.d)));
+          }
 
-      if (totalChunks === null) {
-          setTotalChunks(total);
-          toast({ description: `Multipart logic detected. Total parts: ${total}.` });
-      } else if (totalChunks !== total) {
-          toast({ title: 'Scan Mismatch', description: 'This QR code seems to be from a different logic. Please reset and start over.', variant: 'destructive' });
-          return;
+          // Soft retry logic
+          if (lastScannedPart.current === parsed.p) {
+            consecutiveScans.current += 1;
+            if (consecutiveScans.current >= 3 && scannedChunks.size < totalChunks!) {
+              toast({ title: "Still scanning...", description: `Missing ${totalChunks! - scannedChunks.size} parts. Try showing a different QR code.` });
+              consecutiveScans.current = 0; // Reset counter after showing toast
+            }
+          } else {
+            lastScannedPart.current = parsed.p;
+            consecutiveScans.current = 1;
+          }
+
+      } else {
+          // Fallback for single, unstructured QR codes
+          const logic = JSON.parse(decodedText) as Logic;
+          onScanSuccess(logic);
+          stopScan(true);
       }
-      
-      if (!scannedChunks.has(part)) {
-        setScannedChunks(new Map(scannedChunks.set(part, content)));
-        toast({ description: `Scanned part ${part} of ${total}.` });
-      }
-    } else {
-      // Single QR code
+    } catch (e) {
+      // Potentially a single-part QR code that isn't chunked JSON
       try {
         const logic = JSON.parse(decodedText) as Logic;
         onScanSuccess(logic);
         stopScan(true);
-      } catch (e) {
-        toast({ title: 'Scan Error', description: 'Invalid QR code data.', variant: 'destructive' });
-        resetScanState();
+      } catch (e2) {
+        // Ignore errors, as the scanner will keep trying
       }
     }
   };
@@ -134,7 +172,7 @@ export function QrScanner({ onScanSuccess }: QrScannerProps) {
     try {
         const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
         console.log('Camera permission granted.');
-        stream.getTracks().forEach(track => track.stop()); // Stop the track immediately after permission check
+        stream.getTracks().forEach(track => track.stop());
     } catch (err) {
         console.error("Camera permission error:", err);
         setCameraState('denied');
@@ -148,7 +186,7 @@ export function QrScanner({ onScanSuccess }: QrScannerProps) {
     try {
         await scannerRef.current.start(
             { facingMode: "environment" },
-            { fps: 10, qrbox: qrboxFunction, aspectRatio: 1.0 },
+            { fps: 5, qrbox: qrboxFunction, aspectRatio: 1.0 },
             handleScanSuccess,
             (errorMessage: string, error: Html5QrcodeError) => { /* ignore parse errors */ }
         );
@@ -188,6 +226,8 @@ export function QrScanner({ onScanSuccess }: QrScannerProps) {
         </Card>
      )
   }
+
+  const scanProgress = totalChunks ? Math.round((scannedChunks.size / totalChunks) * 100) : 0;
 
   return (
     <div className="flex flex-col items-center gap-4">
@@ -229,19 +269,12 @@ export function QrScanner({ onScanSuccess }: QrScannerProps) {
               Stop Scanning
           </Button>
         )}
-
-        {isScanning && totalChunks && totalChunks > 1 && (
-            <Button onClick={processAndFinalize} className="bg-green-600 hover:bg-green-700">
-                <CheckCircle className="mr-2 h-4 w-4" />
-                Finish Scanning
-            </Button>
-        )}
       </div>
 
       {totalChunks && isScanning && (
-         <div className="text-center">
-            <p className="font-semibold">Scanning multipart logic...</p>
-            <p className="text-xl font-bold">{scannedChunks.size} / {totalChunks} parts found</p>
+         <div className="text-center w-full max-w-sm space-y-2">
+            <p className="font-semibold text-lg">📦 {scannedChunks.size} of {totalChunks} parts received</p>
+            <Progress value={scanProgress} className="w-full" />
             <Button onClick={resetScanState} variant="outline" size="sm" className="mt-2">
                 <RefreshCw className="mr-2 h-3 w-3" />
                 Reset Progress

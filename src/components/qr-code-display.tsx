@@ -1,3 +1,4 @@
+
 "use client";
 
 import React, { useMemo, useEffect } from 'react';
@@ -16,31 +17,52 @@ interface QrCodeDisplayProps {
   logic: Logic;
 }
 
-const CHUNK_SIZE = 250; 
+const CHUNK_SIZE = 150; // Reduced to accommodate JSON structure overhead
+
+type QrChunk = {
+  s: string; // sessionId
+  p: number; // part index
+  t: number; // total parts
+  d: string; // data
+}
 
 export function QrCodeDisplay({ logic }: QrCodeDisplayProps) {
   const [api, setApi] = React.useState<CarouselApi>()
   const [current, setCurrent] = React.useState(0)
   const [count, setCount] = React.useState(0)
 
+  const sessionId = useMemo(() => crypto.randomUUID(), [logic]);
+
   const chunks = useMemo(() => {
     const logicString = JSON.stringify(logic);
-    const numChunks = Math.ceil(logicString.length / CHUNK_SIZE);
+    
+    // Estimate payload overhead: {"s":"","p":,"t":,"d":""}
+    // A more precise calculation would be better, but this is a safe estimate.
+    const overhead = JSON.stringify({s:sessionId, p: 99, t: 99, d:''}).length;
+    const effectiveChunkSize = CHUNK_SIZE - overhead;
+    
+    const numChunks = Math.ceil(logicString.length / effectiveChunkSize);
+
     if (numChunks <= 1) {
-      return [logicString];
+      return [logicString]; // Send as a single, non-chunked string for simplicity
     }
+    
     const newChunks = [];
     for (let i = 0; i < numChunks; i++) {
-      const prefix = `[${i + 1}/${numChunks}]`;
-      const availableSize = CHUNK_SIZE - prefix.length;
-      const content = logicString.substring(i * availableSize, (i + 1) * availableSize);
-      newChunks.push(prefix + content);
+      const content = logicString.substring(i * effectiveChunkSize, (i + 1) * effectiveChunkSize);
+      const chunk: QrChunk = {
+        s: sessionId,
+        p: i + 1,
+        t: numChunks,
+        d: content,
+      };
+      newChunks.push(JSON.stringify(chunk));
     }
     return newChunks;
-  }, [logic]);
+  }, [logic, sessionId]);
 
   const plugin = React.useRef(
-    Autoplay({ delay: 2000, stopOnInteraction: true })
+    Autoplay({ delay: 1500, stopOnInteraction: true })
   )
 
   useEffect(() => {
