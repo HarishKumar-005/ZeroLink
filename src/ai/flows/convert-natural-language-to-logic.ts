@@ -70,7 +70,7 @@ RULES:
 - "name" must be concise and readable.
 - For triggers with multiple conditions, use "type": "all" if all must be true, and "any" if any one can be true.
 - If a user says something like “when it’s dark,” translate to { "sensor": "light", "operator": "<", "value": 100 }.
-- For the "motion" sensor, the value will always be a boolean (true for detected, false for not detected). The operator is usually "=".
+- For the "motion" sensor, the value must be a boolean (true for detected, false for not detected). The operator is usually "=".
 - For demo visibility, prefer "flashBackground" or "vibrate" over just "log".
 - Return ONLY the raw JSON object as a string in the 'logicJson' field. Do not include markdown or explanations.
 
