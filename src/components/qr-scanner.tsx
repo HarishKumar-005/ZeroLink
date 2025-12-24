@@ -6,7 +6,7 @@ import { Html5Qrcode, type Html5QrcodeError, type Html5QrcodeResult } from 'html
 import { type Logic } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from './ui/button';
-import { Camera, RefreshCw, Loader2 } from 'lucide-react';
+import { Camera, RefreshCw, Loader2, CheckCircle } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from './ui/card';
@@ -38,6 +38,26 @@ export function QrScanner({ onScanSuccess }: QrScannerProps) {
     setTotalChunks(null);
   }, []);
 
+  const processAndFinalize = useCallback(() => {
+    if (totalChunks === null || scannedChunks.size !== totalChunks) {
+        toast({ title: 'Incomplete Scan', description: `Missing ${totalChunks! - scannedChunks.size} parts. Please scan all QR codes.`, variant: 'destructive'});
+        return;
+    }
+
+    const sortedChunks = Array.from(scannedChunks.entries()).sort((a, b) => a[0] - b[0]);
+    const fullString = sortedChunks.map(chunk => chunk[1]).join('');
+    
+    try {
+      const logic = JSON.parse(fullString) as Logic;
+      onScanSuccess(logic);
+      stopScan(true);
+    } catch (e) {
+      toast({ title: 'Scan Error', description: 'Failed to parse combined QR data. The parts may be from different logics.', variant: 'destructive' });
+      resetScanState();
+    }
+  }, [scannedChunks, totalChunks, onScanSuccess, toast, resetScanState]);
+
+
   const stopScan = useCallback(async (isSuccess = false) => {
     if (scannerRef.current && scannerRef.current.isScanning) {
       try {
@@ -51,7 +71,7 @@ export function QrScanner({ onScanSuccess }: QrScannerProps) {
     if (!isSuccess && scannedChunks.size > 0) {
       toast({
         title: "Scan Stopped",
-        description: "❌ Incomplete scan. Please try again.",
+        description: "❌ Scan cancelled. All progress has been reset.",
         variant: "destructive"
       });
     }
@@ -65,22 +85,6 @@ export function QrScanner({ onScanSuccess }: QrScannerProps) {
     };
   }, [stopScan]);
 
-  useEffect(() => {
-    if (totalChunks !== null && scannedChunks.size === totalChunks) {
-      const sortedChunks = Array.from(scannedChunks.entries()).sort((a, b) => a[0] - b[0]);
-      const fullString = sortedChunks.map(chunk => chunk[1]).join('');
-      try {
-        const logic = JSON.parse(fullString) as Logic;
-        onScanSuccess(logic);
-        stopScan(true);
-      } catch (e) {
-        toast({ title: 'Scan Error', description: 'Failed to parse combined QR data.', variant: 'destructive' });
-        resetScanState();
-      }
-    }
-  }, [scannedChunks, totalChunks, onScanSuccess, toast, resetScanState, stopScan]);
-
-
   const handleScanSuccess = (decodedText: string, result: Html5QrcodeResult) => {
     const chunkMatch = decodedText.match(/^\[(\d+)\/(\d+)\]/);
     if (chunkMatch) {
@@ -88,7 +92,13 @@ export function QrScanner({ onScanSuccess }: QrScannerProps) {
       const total = parseInt(chunkMatch[2], 10);
       const content = decodedText.substring(chunkMatch[0].length);
 
-      if (totalChunks === null) setTotalChunks(total);
+      if (totalChunks === null) {
+          setTotalChunks(total);
+          toast({ description: `Multipart logic detected. Total parts: ${total}.` });
+      } else if (totalChunks !== total) {
+          toast({ title: 'Scan Mismatch', description: 'This QR code seems to be from a different logic. Please reset and start over.', variant: 'destructive' });
+          return;
+      }
       
       if (!scannedChunks.has(part)) {
         setScannedChunks(new Map(scannedChunks.set(part, content)));
@@ -198,22 +208,31 @@ export function QrScanner({ onScanSuccess }: QrScannerProps) {
         )}
       </div>
 
-      {!isScanning ? (
-        <Button onClick={startScan} disabled={cameraState === 'loading'}>
-          {cameraState === 'loading' ? <Loader2 className="mr-2 animate-spin" /> : <Camera className="mr-2"/>}
-          {cameraState === 'loading' ? 'Starting...' : 'Start Scanning'}
-        </Button>
-      ) : (
-        <Button onClick={() => stopScan(false)} variant="destructive">Stop Scanning</Button>
-      )}
+      <div className="flex gap-2">
+        {!isScanning ? (
+          <Button onClick={startScan} disabled={cameraState === 'loading'}>
+            {cameraState === 'loading' ? <Loader2 className="mr-2 animate-spin" /> : <Camera className="mr-2"/>}
+            {cameraState === 'loading' ? 'Starting...' : 'Start Scanning'}
+          </Button>
+        ) : (
+          <Button onClick={() => stopScan(false)} variant="destructive">Stop Scanning</Button>
+        )}
+
+        {isScanning && totalChunks && totalChunks > 1 && (
+            <Button onClick={processAndFinalize} className="bg-green-600 hover:bg-green-700">
+                <CheckCircle className="mr-2 h-4 w-4" />
+                Finish Scanning
+            </Button>
+        )}
+      </div>
 
       {totalChunks && isScanning && (
          <div className="text-center">
-            <p>Scanning multipart logic...</p>
-            <p className="font-bold">{scannedChunks.size} / {totalChunks} parts found</p>
+            <p className="font-semibold">Scanning multipart logic...</p>
+            <p className="text-xl font-bold">{scannedChunks.size} / {totalChunks} parts found</p>
             <Button onClick={resetScanState} variant="outline" size="sm" className="mt-2">
                 <RefreshCw className="mr-2 h-3 w-3" />
-                Reset
+                Reset Progress
             </Button>
          </div>
       )}
