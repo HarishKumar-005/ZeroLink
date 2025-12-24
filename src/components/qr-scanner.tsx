@@ -6,7 +6,7 @@ import { Html5Qrcode, type Html5QrcodeError, type Html5QrcodeResult } from 'html
 import { type Logic } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from './ui/button';
-import { Camera, RefreshCw, Loader2, CheckCircle, X } from 'lucide-react';
+import { Camera, RefreshCw, Loader2, CheckCircle, X, ShieldAlert } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 import { cn } from '@/lib/utils';
 import { Card, CardContent } from './ui/card';
@@ -15,7 +15,7 @@ interface QrScannerProps {
   onScanSuccess: (logic: Logic) => void;
 }
 
-type CameraState = 'idle' | 'loading' | 'streaming' | 'denied' | 'error';
+type CameraState = 'idle' | 'loading' | 'streaming' | 'denied' | 'error' | 'unsupported';
 
 const qrboxFunction = (viewfinderWidth: number, viewfinderHeight: number) => {
   const minEdge = Math.min(viewfinderWidth, viewfinderHeight);
@@ -69,12 +69,10 @@ export function QrScanner({ onScanSuccess }: QrScannerProps) {
       }
     }
     setCameraState('idle');
-    // Only show cancellation toast if we were actively scanning and it wasn't a success
     if (wasScanning && !isSuccess) {
       toast({
         title: "Scan Stopped",
         description: "❌ Scan cancelled. All progress has been reset.",
-        variant: "destructive"
       });
     }
     resetScanState();
@@ -85,7 +83,7 @@ export function QrScanner({ onScanSuccess }: QrScannerProps) {
     return () => {
       // Ensure we don't show a toast on simple unmount
       if (scannerRef.current && scannerRef.current.isScanning) {
-        stopScan(false);
+        stopScan(true); // Treat unmount as a successful stop to avoid the toast
       }
     };
   }, [stopScan]);
@@ -125,11 +123,18 @@ export function QrScanner({ onScanSuccess }: QrScannerProps) {
   const startScan = async () => {
     resetScanState();
     setCameraState('loading');
+    
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+        console.error("Camera API not supported.");
+        setCameraState('unsupported');
+        return;
+    }
     console.log('Requesting camera permission...');
     
     try {
-        await navigator.mediaDevices.getUserMedia({ video: true });
+        const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } });
         console.log('Camera permission granted.');
+        stream.getTracks().forEach(track => track.stop()); // Stop the track immediately after permission check
     } catch (err) {
         console.error("Camera permission error:", err);
         setCameraState('denied');
@@ -157,21 +162,21 @@ export function QrScanner({ onScanSuccess }: QrScannerProps) {
 
   const isScanning = cameraState === 'streaming';
   
-  if (cameraState === 'denied' || cameraState === 'error') {
+  if (['denied', 'error', 'unsupported'].includes(cameraState)) {
      return (
         <Card className="border-destructive">
             <CardContent className="p-6">
                 <Alert variant="destructive" className="border-none p-0">
-                    <AlertTitle>👀 Camera Access Problem</AlertTitle>
+                    <ShieldAlert className="h-5 w-5"/>
+                    <AlertTitle>Camera Problem Detected</AlertTitle>
                     <AlertDescription>
                     <p className="mb-4">
-                        {cameraState === 'denied' 
-                        ? "We couldn't access your camera. Please check your browser's site settings to grant permission."
-                        : "The camera failed to start. This can sometimes happen if another app is using it."
-                        }
+                        {cameraState === 'denied' && "Camera access was denied. Please check your browser's site settings to grant permission."}
+                        {cameraState === 'error' && "The camera failed to start. This can happen if another app is using it or if there was a temporary hardware issue."}
+                        {cameraState === 'unsupported' && "We can't access your camera. This feature isn't supported on your device or browser."}
                     </p>
                     <p className="mb-4 text-xs">
-                        For the best experience, try using a modern browser like Chrome or Firefox on your device.
+                        For the best experience, try a modern browser like Chrome on your device. If issues persist, you can always paste the logic JSON in the text field below.
                     </p>
                     <Button onClick={startScan}>
                         <RefreshCw className="mr-2 h-4 w-4" />
@@ -246,7 +251,3 @@ export function QrScanner({ onScanSuccess }: QrScannerProps) {
     </div>
   );
 }
-
-    
-
-    
