@@ -10,6 +10,7 @@ import { useLogicRunner } from '@/hooks/use-logic-runner';
 import { useLogicStorage } from '@/hooks/use-logic-storage';
 import { SavedLogicList } from './saved-logic-list';
 import { useToast } from '@/hooks/use-toast';
+import { cn } from '@/lib/utils';
 
 const LAST_LOGIC_KEY = 'zerolink-last-active-logic';
 
@@ -20,6 +21,7 @@ export function ReceiverView() {
     temperature: 20,
     motion: false,
   });
+  const [isFlashing, setIsFlashing] = useState(false);
 
   const { toast } = useToast();
   const { savedLogics, saveLogic, deleteLogic } = useLogicStorage();
@@ -56,12 +58,22 @@ export function ReceiverView() {
   };
   
   const handleLogicScanned = (scannedLogic: Logic) => {
-    // Prevent duplicate scans of the same logic
     if (activeLogic && JSON.stringify(scannedLogic) === JSON.stringify(activeLogic)) {
       toast({ description: "This logic is already loaded."});
       return; 
     }
     handleLogicUpdate(scannedLogic);
+
+    // Feedback on successful scan
+    toast({
+      title: "✅ Logic loaded successfully",
+      description: `Loaded: ${scannedLogic.name}`,
+    });
+    if (navigator.vibrate) {
+      navigator.vibrate(200);
+    }
+    setIsFlashing(true);
+    setTimeout(() => setIsFlashing(false), 1000);
   };
   
   const handleLoadLogic = (logic: Logic) => {
@@ -106,6 +118,7 @@ export function ReceiverView() {
             onClear={handleUnload}
             eventLog={eventLog}
             onClearLog={clearLog}
+            className={cn('transition-all duration-300', isFlashing && 'border-green-500 border-4 shadow-lg')}
           />
         )}
       </div>

@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useEffect, useRef, useState } from 'react';
@@ -6,6 +7,7 @@ import { type Logic } from '@/types';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from './ui/button';
 import { Camera, RefreshCw } from 'lucide-react';
+import { Alert, AlertDescription, AlertTitle } from './ui/alert';
 
 interface QrScannerProps {
   onScanSuccess: (logic: Logic) => void;
@@ -23,8 +25,9 @@ const qrboxFunction = (viewfinderWidth: number, viewfinderHeight: number) => {
 export function QrScanner({ onScanSuccess }: QrScannerProps) {
   const { toast } = useToast();
   const [isScanning, setIsScanning] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [hasCameraPermission, setHasCameraPermission] = useState<boolean | null>(null);
   const scannerRef = useRef<Html5Qrcode | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
   const [scannedChunks, setScannedChunks] = useState<Map<number, string>>(new Map());
   const [totalChunks, setTotalChunks] = useState<number | null>(null);
 
@@ -43,10 +46,6 @@ export function QrScanner({ onScanSuccess }: QrScannerProps) {
       try {
         const logic = JSON.parse(fullString) as Logic;
         onScanSuccess(logic);
-        toast({
-          title: 'Logic Loaded!',
-          description: `Successfully loaded logic: ${logic.name}`,
-        });
         stopScan();
       } catch (e) {
         toast({ title: 'Scan Error', description: 'Failed to parse combined QR data.', variant: 'destructive' });
@@ -73,10 +72,6 @@ export function QrScanner({ onScanSuccess }: QrScannerProps) {
       try {
         const logic = JSON.parse(decodedText) as Logic;
         onScanSuccess(logic);
-        toast({
-          title: 'Logic Loaded!',
-          description: `Successfully loaded logic: ${logic.name}`,
-        });
         stopScan();
       } catch (e) {
         toast({ title: 'Scan Error', description: 'Invalid QR code data.', variant: 'destructive' });
@@ -84,28 +79,27 @@ export function QrScanner({ onScanSuccess }: QrScannerProps) {
       }
     }
   };
-
+  
   const startScan = async () => {
-    setError(null);
     setIsScanning(true);
     resetScan();
 
     try {
-      const devices = await Html5Qrcode.getCameras();
-      if (devices && devices.length) {
-        scannerRef.current = new Html5Qrcode("qr-reader");
-        await scannerRef.current.start(
-          { facingMode: "environment" },
-          { fps: 10, qrbox: qrboxFunction, aspectRatio: 1.0 },
-          handleScanSuccess,
-          (errorMessage) => { /* ignore parse errors */ }
-        );
-      } else {
-        setError("No camera found.");
-        setIsScanning(false);
-      }
+      // Check for camera permissions before starting
+      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      stream.getTracks().forEach(track => track.stop()); // Stop the track immediately, we just needed permission
+      setHasCameraPermission(true);
+
+      scannerRef.current = new Html5Qrcode("qr-reader");
+      await scannerRef.current.start(
+        { facingMode: "environment" },
+        { fps: 10, qrbox: qrboxFunction, aspectRatio: 1.0 },
+        handleScanSuccess,
+        (errorMessage) => { /* ignore parse errors */ }
+      );
     } catch (err) {
-      setError("Failed to start scanner. Please grant camera permissions.");
+      console.error("Scanner Error:", err);
+      setHasCameraPermission(false);
       setIsScanning(false);
     }
   };
@@ -122,8 +116,15 @@ export function QrScanner({ onScanSuccess }: QrScannerProps) {
     setTotalChunks(null);
   };
   
-  if(error) {
-    return <p className="text-destructive text-center">{error}</p>
+  if(hasCameraPermission === false) {
+     return (
+       <Alert variant="destructive">
+         <AlertTitle>Camera Access Denied</AlertTitle>
+         <AlertDescription>
+           Please enable camera permissions in your browser settings to scan QR codes.
+         </AlertDescription>
+       </Alert>
+     )
   }
 
   return (

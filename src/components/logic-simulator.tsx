@@ -1,3 +1,4 @@
+
 "use client";
 
 import { type Logic, type SensorData, type EventLogEntry } from "@/types";
@@ -9,6 +10,7 @@ import { Switch } from "./ui/switch";
 import { Button } from "./ui/button";
 import { Sun, Thermometer, Accessibility, Save, Trash2 } from "lucide-react";
 import { EventLog } from "./event-log";
+import { cn } from "@/lib/utils";
 
 interface LogicSimulatorProps {
   logic: Logic;
@@ -18,6 +20,7 @@ interface LogicSimulatorProps {
   onClear: () => void;
   eventLog: EventLogEntry[];
   onClearLog: () => void;
+  className?: string;
 }
 
 export function LogicSimulator({
@@ -28,9 +31,10 @@ export function LogicSimulator({
   onClear,
   eventLog,
   onClearLog,
+  className
 }: LogicSimulatorProps) {
   return (
-    <Card className="w-full">
+    <Card className={cn("w-full", className)}>
       <CardHeader>
         <CardTitle>Logic Simulation: <span className="text-primary">{logic.name}</span></CardTitle>
         <CardDescription>Adjust the sensor values to test the loaded logic.</CardDescription>
