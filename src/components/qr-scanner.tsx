@@ -289,3 +289,5 @@ export function QrScanner({ onScanSuccess }: QrScannerProps) {
 }
 
     
+
+    
