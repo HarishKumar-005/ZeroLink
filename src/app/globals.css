@@ -115,4 +115,26 @@
     0%, 100% { opacity: 0; }
     10%, 90% { opacity: 1; }
   }
+
+  .scanner-box {
+    position: relative;
+    border-radius: 1rem;
+    overflow: hidden;
+    @apply border-4 border-transparent;
+  }
+
+  .scanner-box.scanning {
+    animation: pulseBorder 2s infinite;
+  }
+
+  @keyframes pulseBorder {
+    0%, 100% {
+      border-color: hsl(var(--accent));
+      box-shadow: 0 0 15px hsl(var(--accent) / 0.5);
+    }
+    50% {
+      border-color: hsl(var(--accent) / 0.5);
+      box-shadow: 0 0 30px hsl(var(--accent) / 0.2);
+    }
+  }
 }

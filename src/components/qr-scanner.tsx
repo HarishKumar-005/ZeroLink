@@ -8,6 +8,7 @@ import { useToast } from '@/hooks/use-toast';
 import { Button } from './ui/button';
 import { Camera, RefreshCw } from 'lucide-react';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
+import { cn } from '@/lib/utils';
 
 interface QrScannerProps {
   onScanSuccess: (logic: Logic) => void;
@@ -46,7 +47,7 @@ export function QrScanner({ onScanSuccess }: QrScannerProps) {
       try {
         const logic = JSON.parse(fullString) as Logic;
         onScanSuccess(logic);
-        stopScan();
+        stopScan(true);
       } catch (e) {
         toast({ title: 'Scan Error', description: 'Failed to parse combined QR data.', variant: 'destructive' });
         resetScan();
@@ -72,7 +73,7 @@ export function QrScanner({ onScanSuccess }: QrScannerProps) {
       try {
         const logic = JSON.parse(decodedText) as Logic;
         onScanSuccess(logic);
-        stopScan();
+        stopScan(true);
       } catch (e) {
         toast({ title: 'Scan Error', description: 'Invalid QR code data.', variant: 'destructive' });
         resetScan();
@@ -85,9 +86,7 @@ export function QrScanner({ onScanSuccess }: QrScannerProps) {
     resetScan();
 
     try {
-      // Check for camera permissions before starting
-      const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-      stream.getTracks().forEach(track => track.stop()); // Stop the track immediately, we just needed permission
+      await navigator.mediaDevices.getUserMedia({ video: true });
       setHasCameraPermission(true);
 
       scannerRef.current = new Html5Qrcode("qr-reader");
@@ -99,14 +98,26 @@ export function QrScanner({ onScanSuccess }: QrScannerProps) {
       );
     } catch (err) {
       console.error("Scanner Error:", err);
+      toast({
+        title: "Camera Permission Denied",
+        description: "Please enable camera permissions to scan QR codes.",
+        variant: "destructive",
+      });
       setHasCameraPermission(false);
       setIsScanning(false);
     }
   };
 
-  const stopScan = async () => {
+  const stopScan = async (isSuccess = false) => {
     if (scannerRef.current && scannerRef.current.isScanning) {
       await scannerRef.current.stop();
+    }
+    if (!isSuccess) {
+      toast({
+        title: "Scan Stopped",
+        description: scannedChunks.size > 0 ? "❌ QR not detected. Try again." : "Scanning was cancelled.",
+        variant: scannedChunks.size > 0 ? "destructive" : "default"
+      });
     }
     setIsScanning(false);
   };
@@ -129,18 +140,27 @@ export function QrScanner({ onScanSuccess }: QrScannerProps) {
 
   return (
     <div className="flex flex-col items-center gap-4">
-      <div id="qr-reader" className={`w-full ${!isScanning && 'hidden'}`} style={{maxWidth: '500px'}} />
-      
+      <div className={cn("scanner-box w-full", isScanning && "scanning")} style={{maxWidth: '500px'}}>
+        <div id="qr-reader" className={cn(!isScanning && 'hidden')} />
+        {isScanning && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="absolute bottom-4 bg-black/50 text-white px-4 py-2 rounded-lg text-sm font-semibold">
+              📷 Align QR code within the box
+            </div>
+          </div>
+        )}
+      </div>
+
       {!isScanning ? (
         <Button onClick={startScan}>
           <Camera className="mr-2 h-4 w-4"/>
           Start Scanning
         </Button>
       ) : (
-        <Button onClick={stopScan} variant="destructive">Stop Scanning</Button>
+        <Button onClick={() => stopScan(false)} variant="destructive">Stop Scanning</Button>
       )}
 
-      {totalChunks && (
+      {totalChunks && isScanning && (
          <div className="text-center">
             <p>Scanning multipart logic...</p>
             <p className="font-bold">{scannedChunks.size} / {totalChunks} parts found</p>
