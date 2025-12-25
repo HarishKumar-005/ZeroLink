@@ -151,6 +151,7 @@ export const useLogicRunner = (
     useEffect(() => {
         if (typeof window === 'undefined' || !logic) return;
 
+        // Normalize triggers and actions to always be arrays for consistent processing
         const triggers = Array.isArray(logic.triggers) ? logic.triggers : [logic.triggers];
         const actions = Array.isArray(logic.actions) ? logic.actions : [logic.actions];
 

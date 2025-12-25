@@ -23,6 +23,9 @@ interface DeviceCardProps {
 const getIsActive = (logic: Logic | null, sensorType: SensorType): boolean => {
     if (!logic) return false;
 
+    // Normalize triggers to always be an array
+    const triggers = Array.isArray(logic.triggers) ? logic.triggers : [logic.triggers];
+
     const findRelevantConditions = (trigger: Trigger): boolean => {
         if ('sensor' in trigger) {
             return trigger.sensor === sensorType;
@@ -33,7 +36,7 @@ const getIsActive = (logic: Logic | null, sensorType: SensorType): boolean => {
         return false;
     };
 
-    return logic.triggers.some(findRelevantConditions);
+    return triggers.some(findRelevantConditions);
 };
 
 export const DeviceCard = ({ sensorType, value, onValueChange, logic }: DeviceCardProps) => {

@@ -132,12 +132,19 @@ export function ReceiverView() {
   const [manualJson, setManualJson] = useState('');
   const handleManualLoad = () => {
     try {
-      const parsedLogic = JSON.parse(manualJson) as Logic;
-      if (parsedLogic.name && parsedLogic.trigger && parsedLogic.action) {
-        handleLogicScanned(parsedLogic);
+      const parsedLogic = JSON.parse(manualJson) as any;
+      // Check for the new flexible structure
+      if (parsedLogic.name && (parsedLogic.trigger || parsedLogic.triggers) && (parsedLogic.action || parsedLogic.actions)) {
+        // Normalize to the array structure for consistency if needed, although the runner handles both
+        const logicToLoad: Logic = {
+          name: parsedLogic.name,
+          triggers: parsedLogic.triggers || parsedLogic.trigger,
+          actions: parsedLogic.actions || parsedLogic.action,
+        };
+        handleLogicScanned(logicToLoad);
         setManualJson('');
       } else {
-        throw new Error('Invalid logic structure.');
+        throw new Error('Invalid logic structure. Must include name, and triggers/actions.');
       }
     } catch (e) {
       toast({

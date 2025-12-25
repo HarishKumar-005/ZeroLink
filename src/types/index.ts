@@ -13,9 +13,13 @@ export type Trigger = Condition | {
 export type Action = {
   type: 'flashBackground' | 'vibrate' | 'log' | 'toggle';
   payload?: {
+    // For flashBackground, vibrate, log
+    message?: string;
+    
     // For flashBackground
     color?: string;
-    message?: string;
+
+    // For vibrate
     duration?: number;
 
     // For toggle
@@ -27,8 +31,8 @@ export type Action = {
 export interface Logic {
   id?: string; // for storage
   name: string;
-  triggers: Trigger[];
-  actions: Action[];
+  triggers: Trigger | Trigger[];
+  actions: Action | Action[];
 }
 
 export type SensorData = {
