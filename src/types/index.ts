@@ -1,3 +1,4 @@
+
 export type Condition = {
   sensor: 'light' | 'temperature' | 'motion' | 'timeOfDay';
   operator: '>' | '<' | '=' | '!=';
