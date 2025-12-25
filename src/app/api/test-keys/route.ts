@@ -26,6 +26,8 @@ function getApiKeys(): string[] {
     .filter(Boolean);
 }
 
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
+
 /**
  * Handles GET requests to test the status of all Gemini API keys.
  */
@@ -35,9 +37,12 @@ export async function GET() {
   if (keys.length === 0) {
     return NextResponse.json({ error: 'No GEMINI_API_KEY environment variables found.' }, { status: 500 });
   }
+  
+  const results: KeyTestResult[] = [];
 
-  const testPromises = keys.map(async (apiKey): Promise<KeyTestResult> => {
+  for (const apiKey of keys) {
     const masked = maskKey(apiKey);
+    let result: KeyTestResult;
     try {
       const model = 'gemini-2.5-flash';
       const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
@@ -51,26 +56,28 @@ export async function GET() {
       });
 
       if (response.ok) {
-        return { key: masked, status: 'active', message: 'OK' };
+        result = { key: masked, status: 'active', message: 'OK' };
+      } else {
+        const errorBody = await response.json();
+        const errorMessage = errorBody.error?.message || `HTTP ${response.status}`;
+        const isPermissionError = errorBody.error?.status === 'PERMISSION_DENIED';
+        
+        result = { 
+          key: masked, 
+          status: isPermissionError ? 'inactive' : 'error', 
+          message: errorMessage,
+          isPermissionError
+        };
       }
 
-      const errorBody = await response.json();
-      const errorMessage = errorBody.error?.message || `HTTP ${response.status}`;
-      const isPermissionError = errorBody.error?.status === 'PERMISSION_DENIED';
-      
-      return { 
-        key: masked, 
-        status: isPermissionError ? 'inactive' : 'error', 
-        message: errorMessage,
-        isPermissionError
-      };
-
     } catch (error: any) {
-      return { key: masked, status: 'error', message: error.message || 'Network error or invalid response' };
+      result = { key: masked, status: 'error', message: error.message || 'Network error or invalid response' };
     }
-  });
+    results.push(result);
+    // Wait for a short duration between each request to avoid hitting rate limits.
+    await sleep(1000); 
+  }
 
-  const results = await Promise.all(testPromises);
 
   return NextResponse.json({
     totalKeys: results.length,
