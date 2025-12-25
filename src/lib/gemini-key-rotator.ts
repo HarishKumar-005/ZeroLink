@@ -224,23 +224,6 @@ export async function generateWithFallback(
 }
 
 /**
- * Returns the current status of all API keys for diagnostics.
- * @returns A serializable object with the status of each key.
- */
-export function getKeyStatus() {
-  initializeKeys();
-  const status: Record<string, Omit<KeyState, 'cooldownUntil'> & { cooldownUntil: string, isCoolingDown: boolean }> = {};
-  keyStates.forEach((state, key) => {
-    status[maskKey(key)] = {
-      ...state,
-      cooldownUntil: new Date(state.cooldownUntil).toISOString(),
-      isCoolingDown: Date.now() < state.cooldownUntil,
-    };
-  });
-  return status;
-}
-
-/**
  * Helper function to sleep for a duration with jitter.
  * @param ms - The base duration in milliseconds.
  */
