@@ -2,10 +2,24 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { type Logic, type SensorData, type Condition, type EventLogEntry, type DeviceStates, Trigger } from '@/types';
+import { type Logic, type SensorData, type Condition, type EventLogEntry, type DeviceStates, Trigger, Action } from '@/types';
 import { toast } from './use-toast';
 
+const getTimeOfDay = () => {
+    const hour = new Date().getHours();
+    return (hour > 6 && hour < 19) ? 'day' : 'night';
+}
+
 const checkCondition = (condition: Condition, sensorData: SensorData): boolean => {
+    if (condition.sensor === 'timeOfDay') {
+        const currentTimeOfDay = getTimeOfDay();
+        switch (condition.operator) {
+            case '=': return currentTimeOfDay === condition.value;
+            case '!=': return currentTimeOfDay !== condition.value;
+            default: return false;
+        }
+    }
+
     const sensorValue = sensorData[condition.sensor];
     switch (condition.operator) {
         case '>': return sensorValue > (condition.value as number);
@@ -66,9 +80,8 @@ export const useLogicRunner = (
 
     const clearLog = () => setEventLog([]);
 
-    const triggerAction = useCallback((logic: Logic) => {
-        const { action, name } = logic;
-        const defaultMessage = `Action '${action.type}' triggered by '${name}'`;
+    const triggerAction = useCallback((action: Action, logicName: string) => {
+        const defaultMessage = `Action '${action.type}' triggered by '${logicName}'`;
         
         // Log every action for consistent feedback, unless it's a toggle with a custom message
         if (action.type !== 'toggle') {
@@ -138,12 +151,27 @@ export const useLogicRunner = (
     useEffect(() => {
         if (typeof window === 'undefined' || !logic) return;
 
-        const shouldTrigger = evaluateTrigger(logic.trigger, sensorData);
+        const triggers = Array.isArray(logic.triggers) ? logic.triggers : [logic.triggers];
+        const actions = Array.isArray(logic.actions) ? logic.actions : [logic.actions];
 
         const now = Date.now();
-        if (shouldTrigger && (now - lastTriggerTime.current > 2000)) { // Debounce for 2 seconds
-            lastTriggerTime.current = now;
-            triggerAction(logic);
+        if (now - lastTriggerTime.current < 2000) {
+             return; // Debounce for 2 seconds
+        }
+
+        let somethingTriggered = false;
+        triggers.forEach((trigger, index) => {
+            if (evaluateTrigger(trigger, sensorData)) {
+                somethingTriggered = true;
+                const actionToRun = actions[index] || actions[0]; // Fallback to first action
+                if(actionToRun){
+                    triggerAction(actionToRun, logic.name);
+                }
+            }
+        });
+        
+        if (somethingTriggered) {
+             lastTriggerTime.current = now;
         }
 
     }, [logic, sensorData, triggerAction]);

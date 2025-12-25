@@ -6,7 +6,7 @@ import { type Logic } from "@/types";
 import { z } from "zod";
 
 const BaseConditionSchema = z.object({
-  sensor: z.enum(["light", "temperature", "motion"]),
+  sensor: z.enum(["light", "temperature", "motion", "timeOfDay"]),
   operator: z.enum([">", "<", "=", "!="]),
   value: z.union([z.number(), z.boolean(), z.string()])
 });
@@ -21,10 +21,7 @@ const TriggerSchema: z.ZodType<any> = z.lazy(() =>
   ])
 );
 
-const LogicSchema = z.object({
-  name: z.string(),
-  trigger: TriggerSchema,
-  action: z.object({
+const ActionSchema = z.object({
     type: z.enum(["flashBackground", "vibrate", "log", "toggle"]),
     payload: z.object({
         // Common
@@ -39,7 +36,12 @@ const LogicSchema = z.object({
         state: z.enum(["on", "off"]).optional(),
 
     }).optional()
-  })
+  });
+
+const LogicSchema = z.object({
+  name: z.string(),
+  triggers: z.union([TriggerSchema, z.array(TriggerSchema)]),
+  actions: z.union([ActionSchema, z.array(ActionSchema)]),
 });
 
 
@@ -64,13 +66,13 @@ export async function generateLogicAction(
       console.error("Zod validation failed:", validationResult.error.flatten());
       const fallbackLogic: Logic = {
         name: "Fallback Logic",
-        trigger: {
+        triggers: {
           type: "all",
           conditions: [
             { sensor: "temperature", operator: ">", value: 9999 } // Never triggers
           ]
         },
-        action: { 
+        actions: { 
           type: "log", 
           payload: { message: "AI returned invalid structure." } 
         }

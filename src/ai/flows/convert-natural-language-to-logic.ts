@@ -38,109 +38,83 @@ const prompt = ai.definePrompt({
   name: 'convertNaturalLanguageToLogicPrompt',
   input: {schema: ConvertNaturalLanguageToLogicInputSchema},
   output: {schema: ConvertNaturalLanguageToLogicOutputSchema},
-  prompt: `You are ZeroLink Logic Planner Agent.
+  prompt: `You are a deterministic assistant. You must return ONLY a single valid JSON object that matches the following schema (no markdown, preamble, or extra text):
 
-Your job is to convert natural language goals (like "Turn on fan if hot") into precise logic in structured JSON format.
-
-You must follow the schema and output only a single valid JSON object — no extra text, no comments, no markdown. This output will be parsed and executed directly by a logic engine.
-
-Rules:
-- Only use known sensors: "temperature", "light", "motion"
-- Only use operators: ">", "<", "=", "!="
-- Use boolean \`true\`/\`false\` for motion sensor
-- Action types: "log", "toggle", "flashBackground"
-- Devices (for toggle): "fan", "light", "pump", "siren"
-- Conditions can be simple or nested using "all"/"any" logic
-
-Schema:
-- "name": string
-- "trigger": recursive trigger structure
-- "action": includes action.type and payload
-
-Nested Triggers:
-A trigger can be:
-1. A simple condition: { sensor, operator, value }
-2. A group: { type: "all" | "any", conditions: [triggers...] }
-
-Output a single JSON object that matches this logic.
-
-Few-shot Examples:
----
-
-Input:
-"If temperature is above 30, flash background."
-
-Output:
+Top-level object:
 {
-  "name": "Flash when hot",
-  "trigger": {
-    "sensor": "temperature",
-    "operator": ">",
-    "value": 30
-  },
-  "action": {
-    "type": "flashBackground",
-    "payload": {}
-  }
+  "name": string,
+  "triggers": Trigger | Trigger[],
+  "actions": Action | Action[]
 }
 
----
-
-Input:
-"Turn on the pump if it's hot and there's motion."
-
-Output:
+Trigger can be:
+1. A Simple Condition:
 {
-  "name": "Pump if hot and motion",
-  "trigger": {
-    "type": "all",
-    "conditions": [
-      { "sensor": "temperature", "operator": ">", "value": 30 },
-      { "sensor": "motion", "operator": "=", "value": true }
-    ]
-  },
-  "action": {
-    "type": "toggle",
-    "payload": {
-      "device": "pump",
-      "state": "on"
-    }
-  }
+  "sensor": "temperature" | "light",
+  "operator": ">" | "<" | "=" | "!=",
+  "value": number
+}
+OR
+{
+  "sensor": "motion",
+  "operator": "=" | "!=",
+  "value": true | false
+}
+OR
+{
+  "sensor": "timeOfDay",
+  "operator": "=" | "!=",
+  "value": "day" | "night"
 }
 
----
-
-Input:
-"If motion is detected OR (temperature > 35 AND light < 50), turn on fan."
-
-Output:
+2. A Group Condition:
 {
-  "name": "Smart fan activation",
-  "trigger": {
-    "type": "any",
-    "conditions": [
-      { "sensor": "motion", "operator": "=", "value": true },
-      {
-        "type": "all",
-        "conditions": [
-          { "sensor": "temperature", "operator": ">", "value": 35 },
-          { "sensor": "light", "operator": "<", "value": 50 }
-        ]
-      }
-    ]
-  },
-  "action": {
-    "type": "toggle",
-    "payload": {
-      "device": "fan",
-      "state": "on"
-    }
-  }
+  "type": "all" | "any",
+  "conditions": [ Trigger, ... ] // recursive
 }
 
----
+Action can be:
+{
+  "type": "log",
+  "payload": { "message": string }
+}
+OR
+{
+  "type": "toggle",
+  "payload": { "device": "fan" | "light" | "pump" | "siren", "state": "on" | "off" }
+}
+OR
+{
+  "type": "flashBackground",
+  "payload": {}
+}
 
-Return only a single JSON object matching the schema. Do not include quotes or preambles.
+📌 Rules:
+- Accept multiple rules in input → produce \`triggers\` as an array.
+- Support nested conditions using \`type: "all"\` for AND and \`type: "any"\` for OR logic.
+- Always return a top-level \`"name"\` field summarizing the rule(s).
+- Only use allowed sensors, actions, and field names — strict match.
+- Use \`true\`/\`false\` for \`motion\`, and \`"day"\`/\`"night"\` for \`timeOfDay\`.
+- No extra fields, no explanations.
+
+💡 Few-shot Examples:
+
+1️⃣ Input:
+"If temperature > 35 and light < 20 then water the pump."
+Output:
+{"name":"Heat + low light trigger","triggers":{"type":"all","conditions":[{"sensor":"temperature","operator":">","value":35},{"sensor":"light","operator":"<","value":20}]},"actions":{"type":"toggle","payload":{"device":"pump","state":"on"}}}
+
+2️⃣ Input:
+"If motion is detected and timeOfDay is night, turn on the light."
+Output:
+{"name":"Night motion light","triggers":{"type":"all","conditions":[{"sensor":"motion","operator":"=","value":true},{"sensor":"timeOfDay","operator":"=","value":"night"}]},"actions":{"type":"toggle","payload":{"device":"light","state":"on"}}}
+
+3️⃣ Input:
+"If temperature > 35 then water the pump. If motion is detected and it's night, turn on the light."
+Output:
+{"name":"Pump and light logic","triggers":[{"sensor":"temperature","operator":">","value":35},{"type":"all","conditions":[{"sensor":"motion","operator":"=","value":true},{"sensor":"timeOfDay","operator":"=","value":"night"}]}],"actions":[{"type":"toggle","payload":{"device":"pump","state":"on"}},{"type":"toggle","payload":{"device":"light","state":"on"}}]}
+
+Return ONLY the final JSON object. No extra formatting, no text, no comments.
 
 Now, convert the following natural language description.
 

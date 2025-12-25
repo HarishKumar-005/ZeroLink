@@ -1,5 +1,5 @@
 export type Condition = {
-  sensor: 'light' | 'temperature' | 'motion';
+  sensor: 'light' | 'temperature' | 'motion' | 'timeOfDay';
   operator: '>' | '<' | '=' | '!=';
   value: number | boolean | string;
 };
@@ -27,8 +27,8 @@ export type Action = {
 export interface Logic {
   id?: string; // for storage
   name: string;
-  trigger: Trigger;
-  action: Action;
+  triggers: Trigger | Trigger[];
+  actions: Action | Action[];
 }
 
 export type SensorData = {
