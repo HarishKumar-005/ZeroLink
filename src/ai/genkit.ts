@@ -1,5 +1,5 @@
 
-import {genkit, type ModelAction} from 'genkit';
+import {genkit, type ModelAction, type Plugin} from 'genkit';
 import {googleAI} from '@genkit-ai/google-genai';
 import {generateWithFallback, type RequestOptions} from '../lib/gemini-key-rotator';
 import {zodToJsonSchema} from 'zod-to-json-schema';
@@ -64,35 +64,36 @@ const geminiRotatorModel: ModelAction = async request => {
   };
 };
 
-// 1. Initialize Genkit with the base googleAI plugin.
-const baseAi = genkit({
-  plugins: [googleAI()],
-  flowStateStore: 'firebase',
-  traceStore: 'firebase',
-  flowStallTimeout: 60000,
-});
-
-// 2. Define the custom model plugin using the initialized baseAi object.
-const customModelPlugin = baseAi.defineModel(
-  {
-    name: 'googleai/gemini-rotator', // A custom name for our model
-    label: 'Gemini (Key Rotator)',
-    versions: ['gemini-2.5-flash'],
-    supports: {
-      media: false,
-      multiturn: true,
-      tools: false,
-      systemRole: false,
-      output: ['text', 'structured'],
-    },
-  },
-  geminiRotatorModel
-);
+/**
+ * Creates a Genkit plugin that provides the key-rotating Gemini model.
+ */
+export const geminiRotator: Plugin = (name = 'geminiRotator') => {
+  return (ai) => ({
+    name,
+    models: [
+      ai.defineModel(
+        {
+          name: 'googleai/gemini-rotator',
+          label: 'Gemini (Key Rotator)',
+          versions: ['gemini-2.5-flash'],
+          supports: {
+            media: false,
+            multiturn: true,
+            tools: false,
+            systemRole: false,
+            output: ['text', 'structured'],
+          },
+        },
+        geminiRotatorModel
+      ),
+    ],
+  });
+};
 
 
 // 3. Export a final `ai` object that includes the custom model and sets it as the default.
 export const ai = genkit({
-  plugins: [googleAI(), customModelPlugin],
+  plugins: [googleAI(), geminiRotator()],
   model: 'googleai/gemini-rotator', // Set our custom rotator model as the default
   flowStateStore: 'firebase',
   traceStore: 'firebase',
