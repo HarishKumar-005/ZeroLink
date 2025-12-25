@@ -8,7 +8,6 @@ import { createHash } from 'crypto';
 const DEFAULT_MODEL = 'gemini-2.5-flash';
 const COOLDOWN_DURATION_MS = 60 * 1000; // 60 seconds
 const MAX_FAILURES_PER_KEY = 5;
-const MAX_ATTEMPTS = 6;
 const BACKOFF_INITIAL_MS = 300;
 const BACKOFF_MAX_MS = 5000;
 
@@ -80,21 +79,30 @@ function initializeKeys() {
  * Gets the next available API key in a round-robin fashion, skipping cooled-down or disabled keys.
  * @returns The next available API key or null if all are unavailable.
  */
-function getNextKey(): string | null {
+function getNextKey(): { key: string | null, waitMs: number } {
   const totalKeys = apiKeys.length;
-  if (totalKeys === 0) return null;
+  if (totalKeys === 0) return { key: null, waitMs: 0 };
+
+  let shortestWait = Infinity;
+  let allKeysOnCooldown = true;
 
   for (let i = 0; i < totalKeys; i++) {
     const key = apiKeys[currentKeyIndex];
     const state = keyStates.get(key)!;
     currentKeyIndex = (currentKeyIndex + 1) % totalKeys;
 
-    if (state.isDisabled || Date.now() < state.cooldownUntil) {
-      continue;
+    if (!state.isDisabled) {
+        const now = Date.now();
+        if (now >= state.cooldownUntil) {
+            return { key, waitMs: 0 }; // Found an available key
+        }
+        // Key is on cooldown, track the minimum wait time
+        shortestWait = Math.min(shortestWait, state.cooldownUntil - now);
     }
-    return key;
   }
-  return null; // All keys are on cooldown or disabled
+
+  // If we get here, all non-disabled keys are on cooldown
+  return { key: null, waitMs: shortestWait }; 
 }
 
 /**
@@ -127,18 +135,20 @@ export async function generateWithFallback(
     return { success: true, data: cache.get(cacheKey) };
   }
   
-  const maxRetries = Math.min(MAX_ATTEMPTS, apiKeys.length * 2);
-  let attempts = 0;
   let backoff = BACKOFF_INITIAL_MS;
+  let attempts = 0;
 
-  while (attempts < maxRetries) {
+  while (true) { // Loop indefinitely until we succeed or hit a hard error
     attempts++;
-    const apiKey = getNextKey();
+    const { key: apiKey, waitMs } = getNextKey();
 
     if (!apiKey) {
-      console.warn('[GeminiKeyRotator] All keys are on cooldown. Waiting before retry...');
-      await sleepWithJitter(BACKOFF_MAX_MS);
-      continue;
+      if (waitMs === Infinity) {
+        return { success: false, error: 'All API keys are permanently disabled.', status: 503 };
+      }
+      console.warn(`[GeminiKeyRotator] All keys are on cooldown. Waiting for ${waitMs}ms...`);
+      await sleepWithJitter(waitMs);
+      continue; // Retry getting a key
     }
     
     console.log(`[GeminiKeyRotator] Attempt #${attempts} with key ${maskKey(apiKey)}`);
@@ -219,8 +229,6 @@ export async function generateWithFallback(
       backoff = Math.min(BACKOFF_MAX_MS, backoff * 2);
     }
   }
-
-  return { success: false, error: 'All API keys failed or are on cooldown. Please try again later.', status: 503 };
 }
 
 /**
