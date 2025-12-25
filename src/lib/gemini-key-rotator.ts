@@ -4,6 +4,7 @@
 import { LRUCache } from 'lru-cache';
 import { createHash } from 'crypto';
 
+// The default model to use for Gemini API calls.
 const DEFAULT_MODEL = 'gemini-2.5-flash';
 const COOLDOWN_DURATION_MS = 60 * 1000; // 60 seconds
 const MAX_FAILURES_PER_KEY = 5;
@@ -141,6 +142,7 @@ export async function generateWithFallback(
     console.log(`[GeminiKeyRotator] Attempt #${attempts} with key ${maskKey(apiKey)}`);
 
     try {
+      // Use the specified model or the default one.
       const model = options.model || DEFAULT_MODEL;
       const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
@@ -213,6 +215,7 @@ export async function generateWithFallback(
  * @returns A serializable object with the status of each key.
  */
 export function getKeyStatus() {
+  initializeKeys();
   const status: Record<string, Omit<KeyState, 'cooldownUntil'> & { cooldownUntil: string, isCoolingDown: boolean }> = {};
   keyStates.forEach((state, key) => {
     status[maskKey(key)] = {

@@ -2,9 +2,17 @@
  * @fileoverview A Next.js API route to generate content using the Gemini key rotator.
  */
 import { NextResponse } from 'next/server';
-import { generateWithFallback } from '@/lib/gemini-key-rotator';
+import { generateWithFallback, getKeyStatus } from '@/lib/gemini-key-rotator';
 
 export const runtime = 'nodejs'; // Ensure this runs on the Node.js runtime
+
+/**
+ * Handles GET requests to check the status of the API keys.
+ */
+export async function GET() {
+  const keyStatus = await getKeyStatus();
+  return NextResponse.json(keyStatus);
+}
 
 /**
  * Handles POST requests to generate content.
