@@ -142,7 +142,7 @@ export async function generateWithFallback(
 
     try {
       const model = options.model || DEFAULT_MODEL;
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`;
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${apiKey}`;
 
       const body: any = {
         contents: [{ parts: [{ text: options.prompt }] }],
@@ -158,7 +158,6 @@ export async function generateWithFallback(
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
-          'x-goog-api-key': apiKey,
         },
         body: JSON.stringify(body),
       });
@@ -180,6 +179,13 @@ export async function generateWithFallback(
       }
 
       const result = await response.json();
+      
+      if (!result.candidates || result.candidates.length === 0) {
+        // Handle cases where the API returns a 200 OK but no content (e.g., safety blocked)
+        const blockReason = result.promptFeedback?.blockReason || 'No content returned';
+        throw new Error(`Request was blocked or returned no candidates. Reason: ${blockReason}`);
+      }
+
       const responseData = result.candidates[0].content.parts[0].text;
       
       if (options.responseMimeType === 'application/json') {
