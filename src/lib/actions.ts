@@ -1,7 +1,7 @@
 
 "use server";
 
-import { convertNaturalLanguageToLogic } from "@/ai/flows/convert-natural-language-to-logic";
+import { generateWithFallback } from "@/lib/gemini-key-rotator";
 import { type Logic } from "@/types";
 import { z } from "zod";
 
@@ -44,6 +44,13 @@ const LogicSchema = z.object({
   actions: z.union([ActionSchema, z.array(ActionSchema)]),
 });
 
+// This is the prompt that will be sent to the Gemini API.
+const LOGIC_GENERATION_PROMPT_TEMPLATE = `You are a deterministic assistant. You must return ONLY a single valid JSON object that matches the following schema (no markdown, preamble, or extra text):
+
+// The user's natural language input will be injected here.
+{{naturalLanguage}}
+`;
+
 
 export async function generateLogicAction(
   naturalLanguage: string
@@ -54,29 +61,30 @@ export async function generateLogicAction(
 
   let rawJsonResult: string | null = null;
   try {
-    const result = await convertNaturalLanguageToLogic({ naturalLanguage });
-    rawJsonResult = result.logicJson;
     
-    const logicObject = JSON.parse(rawJsonResult);
+    // Construct the full prompt
+    const prompt = LOGIC_GENERATION_PROMPT_TEMPLATE.replace('{{naturalLanguage}}', naturalLanguage);
+
+    // Call the Gemini API using our key rotator
+    const result = await generateWithFallback({
+      prompt,
+      responseJsonSchema: LogicSchema.jsonSchema(),
+      responseMimeType: 'application/json',
+    });
+
+    if (!result.success) {
+      console.error("Gemini fallback error:", result.error);
+      return { logic: null, error: result.error, rawJson: null };
+    }
+
+    const logicObject = result.data;
+    rawJsonResult = JSON.stringify(logicObject, null, 2);
 
     // Validate the structure of the AI output
     const validationResult = LogicSchema.safeParse(logicObject);
 
     if (!validationResult.success) {
       console.error("Zod validation failed:", validationResult.error.flatten());
-      const fallbackLogic: Logic = {
-        name: "Fallback Logic",
-        triggers: {
-          type: "all",
-          conditions: [
-            { sensor: "temperature", operator: ">", value: 9999 } // Never triggers
-          ]
-        },
-        actions: { 
-          type: "log", 
-          payload: { message: "AI returned invalid structure." } 
-        }
-      };
       return { 
         logic: null, 
         error: "AI returned an invalid logic structure. Please try rephrasing your request.", 
@@ -84,8 +92,8 @@ export async function generateLogicAction(
       };
     }
     
-    // The type assertion here is now safer because of the Zod validation
     return { logic: validationResult.data as Logic, error: null, rawJson: rawJsonResult };
+
   } catch (e) {
     console.error("Error generating logic:", e);
     const errorMessage = e instanceof Error ? e.message : "An unknown error occurred.";
