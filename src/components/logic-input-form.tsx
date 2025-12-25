@@ -30,10 +30,14 @@ type FormValues = z.infer<typeof FormSchema>;
 interface LogicInputFormProps {
   onSubmit: (logic: Logic | null, error: string | null, rawJson: string | null) => void;
   setIsLoading: (loading: boolean) => void;
-  formRef: React.MutableRefObject<UseFormReturn<FormValues> | null>;
+  formRef: React.RefObject<{
+      formRef: React.RefObject<HTMLFormElement>;
+      setValue: UseFormReturn<FormValues>['setValue'];
+      handleSubmit: UseFormReturn<FormValues>['handleSubmit'];
+  }>;
 }
 
-export function LogicInputForm({ onSubmit, setIsLoading, formRef }: LogicInputFormProps) {
+export function LogicInputForm({ onSubmit, setIsLoading, formRef: parentRef }: LogicInputFormProps) {
   const { toast } = useToast();
   const form = useForm<FormValues>({
     resolver: zodResolver(FormSchema),
@@ -42,8 +46,14 @@ export function LogicInputForm({ onSubmit, setIsLoading, formRef }: LogicInputFo
     },
   });
 
+  const internalFormRef = React.useRef<HTMLFormElement>(null);
+
   // Expose the form instance to the parent component
-  React.useImperativeHandle(formRef, () => form);
+  React.useImperativeHandle(parentRef, () => ({
+    formRef: internalFormRef,
+    setValue: form.setValue,
+    handleSubmit: form.handleSubmit,
+  }));
 
   async function handleFormSubmit(data: FormValues) {
     setIsLoading(true);
@@ -63,7 +73,7 @@ export function LogicInputForm({ onSubmit, setIsLoading, formRef }: LogicInputFo
 
   return (
     <Form {...form}>
-      <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6">
+      <form ref={internalFormRef} onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6">
         <FormField
           control={form.control}
           name="naturalLanguage"

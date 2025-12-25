@@ -53,17 +53,14 @@ export function SenderView() {
   const handlePrefillClick = (prompt: string) => {
     if (formRef.current) {
       formRef.current.setValue('naturalLanguage', prompt);
-      // Create a submit handler on the fly to pass to handleSubmit
-      const submitHandler = formRef.current.handleSubmit((data) => {
-        // Find the actual form element and trigger its submit event.
-        // This is a bit of a workaround to trigger the LogicInputForm's own onSubmit.
-        // A better long-term solution might involve a more tightly coupled state management.
-        const formElement = document.querySelector('form');
-        if (formElement) {
-          formElement.requestSubmit();
+      const formElement = (formRef.current as any).formRef.current;
+      if (formElement) {
+        // We need to find the form and submit it programatically
+        const form = formElement.closest('form');
+        if (form) {
+            form.requestSubmit();
         }
-      });
-      submitHandler();
+      }
     }
   };
 
@@ -114,10 +111,12 @@ export function SenderView() {
         )}
         
         {isLoading && (
-          <div className="space-y-4">
-            <Skeleton className="h-8 w-1/2 mx-auto" />
-            <Skeleton className="h-4 w-3/4 mx-auto" />
-            <Skeleton className="h-64 w-64 mx-auto rounded-lg" />
+          <div className="mt-6 text-center space-y-4">
+            <h3 className="text-lg font-semibold text-primary animate-pulse">Generating your Logic Link...</h3>
+            <p className="text-sm text-muted-foreground">The AI is thinking. This may take a moment.</p>
+            <div className="flex justify-center">
+                <Skeleton className="h-48 w-48 rounded-lg" />
+            </div>
           </div>
         )}
         
