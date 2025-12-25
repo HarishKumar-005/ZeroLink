@@ -13,8 +13,9 @@ import { useToast } from '@/hooks/use-toast';
 import { Textarea } from './ui/textarea';
 import { Button } from './ui/button';
 import { Alert, AlertDescription, AlertTitle } from './ui/alert';
-import { Info, Terminal } from 'lucide-react';
+import { Info, Terminal, Share2 } from 'lucide-react';
 import { Label } from './ui/label';
+import { QrCodeDisplay } from './qr-code-display';
 
 const SENSOR_STORAGE_KEY = 'zero-link-sim-sensors';
 const LOGIC_STORAGE_KEY = 'zero-link-sim-active-logic';
@@ -23,6 +24,7 @@ const DEVICE_STATE_STORAGE_KEY = 'zero-link-sim-device-states';
 export function ReceiverView() {
   const [activeLogic, setActiveLogic] = useState<Logic | null>(null);
   const [showDebug, setShowDebug] = useState(false);
+  const [showReshare, setShowReshare] = useState(false);
   
   const [sensorData, setSensorData] = useState<SensorData>({
     light: 50,
@@ -83,6 +85,7 @@ export function ReceiverView() {
   
   const handleLogicUpdate = (logicToSet: Logic | null) => {
     setActiveLogic(logicToSet);
+    setShowReshare(false); // Hide re-share panel when logic changes
     if (logicToSet) {
       persistState(LOGIC_STORAGE_KEY, logicToSet);
     } else {
@@ -194,19 +197,37 @@ export function ReceiverView() {
                 eventLog={eventLog}
                 onClearLog={clearLog}
             />
-             {isDevelopment && (
-                <div className="p-4 border rounded-lg bg-background">
-                    <Button variant="ghost" size="sm" onClick={() => setShowDebug(!showDebug)}>
-                        <Terminal className="mr-2 h-4 w-4" />
-                        {showDebug ? 'Hide' : 'Show'} Raw Logic
+            
+            <div className="p-4 border rounded-lg bg-background space-y-4">
+                <div className="flex justify-between items-center">
+                    <Button variant="outline" onClick={() => setShowReshare(!showReshare)}>
+                        <Share2 className="mr-2 h-4 w-4" />
+                        {showReshare ? 'Hide' : 'Re-share'} This Logic
                     </Button>
-                    {showDebug && (
-                        <pre className="mt-2 p-2 bg-muted rounded-md text-xs overflow-auto">
-                            <code>{JSON.stringify(activeLogic, null, 2)}</code>
-                        </pre>
+
+                    {isDevelopment && (
+                        <Button variant="ghost" size="sm" onClick={() => setShowDebug(!showDebug)}>
+                            <Terminal className="mr-2 h-4 w-4" />
+                            {showDebug ? 'Hide' : 'Show'} Raw Logic
+                        </Button>
                     )}
                 </div>
-            )}
+
+                {showReshare && (
+                    <div className="mt-4">
+                        <h3 className="text-lg font-semibold text-center mb-2">Share this Logic</h3>
+                        <p className="text-sm text-center text-muted-foreground mb-4">
+                          Scan the QR code below on another device to transfer this logic.
+                        </p>
+                        <QrCodeDisplay logic={activeLogic} />
+                    </div>
+                )}
+                 {isDevelopment && showDebug && (
+                    <pre className="mt-2 p-2 bg-muted rounded-md text-xs overflow-auto">
+                        <code>{JSON.stringify(activeLogic, null, 2)}</code>
+                    </pre>
+                )}
+            </div>
           </div>
         )}
       </div>
