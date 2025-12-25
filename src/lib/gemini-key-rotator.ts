@@ -59,19 +59,21 @@ function initializeKeys() {
     .map((key) => process.env[key] as string)
     .filter(Boolean);
 
-  if (discoveredKeys.length === 0) {
-    console.error('CRITICAL: No GEMINI_API_KEY environment variables found.');
-    // In a real app, you might want to throw here to prevent the app from starting.
+  // Remove duplicate keys to prevent unnecessary cycling and quota exhaustion.
+  const uniqueKeys = [...new Set(discoveredKeys)];
+
+  if (uniqueKeys.length === 0) {
+    console.error('CRITICAL: No unique GEMINI_API_KEY environment variables found.');
   }
 
-  apiKeys = discoveredKeys;
+  apiKeys = uniqueKeys;
   keyStates = new Map(
     apiKeys.map((key) => [
       key,
       { cooldownUntil: 0, failures: 0, isDisabled: false },
     ])
   );
-  console.log(`[GeminiKeyRotator] Initialized with ${apiKeys.length} API keys.`);
+  console.log(`[GeminiKeyRotator] Initialized with ${apiKeys.length} unique API keys.`);
 }
 
 /**

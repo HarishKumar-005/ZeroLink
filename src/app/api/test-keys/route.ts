@@ -15,15 +15,17 @@ interface KeyTestResult {
 const maskKey = (key: string) => `...${key.slice(-6)}`;
 
 /**
- * Discovers API keys from environment variables.
- * @returns An array of API keys.
+ * Discovers API keys from environment variables and removes duplicates.
+ * @returns An array of unique API keys.
  */
 function getApiKeys(): string[] {
-  return Object.keys(process.env)
+  const allKeys = Object.keys(process.env)
     .filter((key) => key.startsWith('GEMINI_API_KEY'))
     .sort()
     .map((key) => process.env[key] as string)
     .filter(Boolean);
+  
+  return [...new Set(allKeys)];
 }
 
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms));
@@ -75,7 +77,8 @@ export async function GET() {
     }
     results.push(result);
     // Wait for a short duration between each request to avoid hitting rate limits.
-    await sleep(1000); 
+    // Increased to 2 seconds to be safer.
+    await sleep(2000); 
   }
 
 
