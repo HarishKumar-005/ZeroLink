@@ -30,7 +30,7 @@ const getIsActive = (logic: Logic | null, sensorType: SensorType): boolean => {
         return trigger.conditions.some(findRelevantConditions);
     };
 
-    return findRelevantConditions(logic.trigger);
+    return logic.triggers.some(findRelevantConditions);
 };
 
 export const DeviceCard = ({ sensorType, value, onValueChange, logic }: DeviceCardProps) => {

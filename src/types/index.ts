@@ -27,8 +27,8 @@ export type Action = {
 export interface Logic {
   id?: string; // for storage
   name: string;
-  triggers: Trigger | Trigger[];
-  actions: Action | Action[];
+  triggers: Trigger[];
+  actions: Action[];
 }
 
 export type SensorData = {
