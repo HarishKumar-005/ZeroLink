@@ -4,6 +4,7 @@
 import { generateWithFallback } from "@/lib/gemini-key-rotator";
 import { type Logic } from "@/types";
 import { z } from "zod";
+import { zodToJsonSchema } from "zod-to-json-schema";
 
 const BaseConditionSchema = z.object({
   sensor: z.enum(["light", "temperature", "motion", "timeOfDay"]),
@@ -65,10 +66,12 @@ export async function generateLogicAction(
     // Construct the full prompt
     const prompt = LOGIC_GENERATION_PROMPT_TEMPLATE.replace('{{naturalLanguage}}', naturalLanguage);
 
+    const jsonSchema = zodToJsonSchema(LogicSchema, "LogicSchema");
+
     // Call the Gemini API using our key rotator
     const result = await generateWithFallback({
       prompt,
-      responseJsonSchema: LogicSchema.jsonSchema(),
+      responseJsonSchema: jsonSchema,
       responseMimeType: 'application/json',
     });
 
