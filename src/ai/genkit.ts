@@ -1,38 +1,48 @@
 
 import {genkit, type ModelAction} from 'genkit';
 import {googleAI} from '@genkit-ai/google-genai';
-import {
-  generateWithFallback,
-  type RequestOptions,
-} from '../lib/gemini-key-rotator';
+import {generateWithFallback, type RequestOptions} from '../lib/gemini-key-rotator';
+import {zodToJsonSchema} from 'zod-to-json-schema';
 
-// Define a custom model that uses our key rotator
-const gemini25FlashRotator: ModelAction = async (request) => {
-  // 1. Convert Genkit's input messages to a single string prompt.
-  const prompt = request.messages.map((m) => m.content[0].text || '').join('\n');
+// This is the custom model action that will be used by all Genkit flows.
+// It acts as a bridge between Genkit's request format and our custom key rotator.
+const geminiRotatorModel: ModelAction = async request => {
+  // 1. Extract the text prompt from Genkit's message structure.
+  const prompt = request.messages.map(m => m.content[0].text || '').join('\n');
 
-  // 2. Extract schema and mime type from Genkit config.
+  // 2. Prepare the options for our key rotator.
   const options: RequestOptions = {
     prompt,
-    model: 'gemini-2.5-flash',
+    model: 'gemini-2.5-flash', // We are targeting a specific model
   };
-  
-  // CRITICAL FIX: The schema was not being correctly extracted from the request.
-  // The 'structured' property in the response config holds the schema.
-  if (request.config?.response?.format === 'structured' && request.config.response.schema) {
-    options.responseJsonSchema = request.config.response.schema;
+
+  // 3. CRITICAL FIX: Correctly extract the JSON schema if the request asks for structured output.
+  if (
+    request.config?.response?.format === 'structured' &&
+    request.config.response.schema
+  ) {
+    // Convert Zod schema to JSON schema format that the Gemini API understands.
+    const jsonSchema = zodToJsonSchema(request.config.response.schema);
+    
+    // The Gemini API does not support top-level $schema, definitions, or $ref properties.
+    // We need to create a "clean" version of the schema for the API.
+    const apiClientSchema = { ...jsonSchema };
+    delete (apiClientSchema as any).$schema;
+    delete (apiClientSchema as any).definitions;
+    delete (apiClientSchema as any).$ref;
+    
+    options.responseJsonSchema = apiClientSchema;
     options.responseMimeType = 'application/json';
   }
 
-
-  // 3. Call our custom key rotator.
+  // 4. Call our robust key rotator with the prepared options.
   const result = await generateWithFallback(options);
 
   if (!result.success) {
     throw new Error(result.error);
   }
 
-  // 4. Map the output back to the Genkit response format.
+  // 5. Map the output from our rotator back to the format Genkit expects.
   return {
     candidates: [
       {
@@ -54,28 +64,37 @@ const gemini25FlashRotator: ModelAction = async (request) => {
   };
 };
 
-export const ai = genkit({
-  plugins: [
-    // We still include the googleAI plugin, but we won't use its default model.
-    googleAI(),
+// 1. Initialize Genkit with the base googleAI plugin.
+const baseAi = genkit({
+  plugins: [googleAI()],
+  flowStateStore: 'firebase',
+  traceStore: 'firebase',
+  flowStallTimeout: 60000,
+});
 
-    // Define our custom model plugin.
-    ai.defineModel(
-      {
-        name: 'googleai/gemini-2.5-flash-rotator',
-        label: 'Gemini 2.5 Flash (Rotator)',
-        versions: ['gemini-2.5-flash'],
-        supports: {
-          media: false,
-          multiturn: true,
-          tools: false,
-          systemRole: false,
-          output: ['text', 'structured'],
-        },
-      },
-      gemini25FlashRotator
-    ),
-  ],
-  // Manually configured to use our custom rotator model for all Genkit flows.
-  model: 'googleai/gemini-2.5-flash-rotator',
+// 2. Define the custom model plugin using the initialized baseAi object.
+const customModelPlugin = baseAi.defineModel(
+  {
+    name: 'googleai/gemini-rotator', // A custom name for our model
+    label: 'Gemini (Key Rotator)',
+    versions: ['gemini-2.5-flash'],
+    supports: {
+      media: false,
+      multiturn: true,
+      tools: false,
+      systemRole: false,
+      output: ['text', 'structured'],
+    },
+  },
+  geminiRotatorModel
+);
+
+
+// 3. Export a final `ai` object that includes the custom model and sets it as the default.
+export const ai = genkit({
+  plugins: [googleAI(), customModelPlugin],
+  model: 'googleai/gemini-rotator', // Set our custom rotator model as the default
+  flowStateStore: 'firebase',
+  traceStore: 'firebase',
+  flowStallTimeout: 60000,
 });
