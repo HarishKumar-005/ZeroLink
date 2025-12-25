@@ -159,19 +159,13 @@ export const useLogicRunner = (
              return; // Debounce for 2 seconds
         }
 
-        let somethingTriggered = false;
-        triggers.forEach((trigger, index) => {
-            if (evaluateTrigger(trigger, sensorData)) {
-                somethingTriggered = true;
-                const actionToRun = actions[index] || actions[0]; // Fallback to first action
-                if(actionToRun){
-                    triggerAction(actionToRun, logic.name);
-                }
-            }
-        });
-        
-        if (somethingTriggered) {
-             lastTriggerTime.current = now;
+        const isTriggered = triggers.some(trigger => evaluateTrigger(trigger, sensorData));
+
+        if (isTriggered) {
+            actions.forEach(action => {
+                triggerAction(action, logic.name);
+            });
+            lastTriggerTime.current = now;
         }
 
     }, [logic, sensorData, triggerAction]);
