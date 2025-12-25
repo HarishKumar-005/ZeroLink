@@ -4,7 +4,7 @@
 import { LRUCache } from 'lru-cache';
 import { createHash } from 'crypto';
 
-// The default model to use for Gemini API calls.
+// The default model to use for Gemini API calls. Manually configured to use the gemini-2.5-flash model.
 const DEFAULT_MODEL = 'gemini-2.5-flash';
 const COOLDOWN_DURATION_MS = 60 * 1000; // 60 seconds
 const MAX_FAILURES_PER_KEY = 5;
@@ -18,7 +18,7 @@ interface KeyState {
   isDisabled: boolean;
 }
 
-interface RequestOptions {
+export interface RequestOptions {
   prompt: string;
   model?: string;
   responseJsonSchema?: Record<string, any>;
@@ -164,6 +164,13 @@ export async function generateWithFallback(
         body: JSON.stringify(body),
       });
 
+      // 400-level errors are client errors, don't retry.
+      if (response.status >= 400 && response.status < 500 && response.status !== 429) {
+        const errorBody = await response.text();
+        console.error(`[GeminiKeyRotator] Client Error ${response.status} with key ${maskKey(apiKey)}. Aborting.`, errorBody);
+        return { success: false, error: `Client Error: ${response.status} ${errorBody}`, status: response.status };
+      }
+
       if (response.status === 429) {
         console.warn(`[GeminiKeyRotator] Key ${maskKey(apiKey)} is rate-limited (429). Placing on cooldown.`);
         const state = keyStates.get(apiKey)!;
@@ -177,6 +184,7 @@ export async function generateWithFallback(
       }
 
       if (!response.ok) {
+        // This will catch 5xx server errors, which are worth retrying.
         throw new Error(`API request failed with status ${response.status}: ${await response.text()}`);
       }
 
@@ -190,14 +198,17 @@ export async function generateWithFallback(
 
       const responseData = result.candidates[0].content.parts[0].text;
       
+      let finalData = responseData;
       if (options.responseMimeType === 'application/json') {
-          const parsedData = JSON.parse(responseData);
-          cache.set(cacheKey, parsedData);
-          return { success: true, data: parsedData };
+          try {
+            finalData = JSON.parse(responseData);
+          } catch (e) {
+            throw new Error(`Failed to parse JSON response: ${responseData}`);
+          }
       }
       
-      cache.set(cacheKey, responseData);
-      return { success: true, data: responseData };
+      cache.set(cacheKey, finalData);
+      return { success: true, data: finalData };
 
     } catch (error) {
       console.error(`[GeminiKeyRotator] Error with key ${maskKey(apiKey)}:`, error);
