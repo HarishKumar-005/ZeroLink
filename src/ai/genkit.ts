@@ -1,3 +1,4 @@
+
 import {genkit, type ModelAction} from 'genkit';
 import {googleAI} from '@genkit-ai/google-genai';
 import {
@@ -15,10 +16,14 @@ const gemini25FlashRotator: ModelAction = async (request) => {
     prompt,
     model: 'gemini-2.5-flash',
   };
-  if (request.config?.response?.schema) {
+  
+  // CRITICAL FIX: The schema was not being correctly extracted from the request.
+  // The 'structured' property in the response config holds the schema.
+  if (request.config?.response?.format === 'structured' && request.config.response.schema) {
     options.responseJsonSchema = request.config.response.schema;
     options.responseMimeType = 'application/json';
   }
+
 
   // 3. Call our custom key rotator.
   const result = await generateWithFallback(options);
@@ -65,6 +70,7 @@ export const ai = genkit({
           multiturn: true,
           tools: false,
           systemRole: false,
+          output: ['text', 'structured'],
         },
       },
       gemini25FlashRotator
