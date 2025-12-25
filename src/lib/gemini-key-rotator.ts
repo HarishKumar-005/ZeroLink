@@ -4,7 +4,7 @@
 import { LRUCache } from 'lru-cache';
 import { createHash } from 'crypto';
 
-const DEFAULT_MODEL = 'gemini-1.5-flash-latest';
+const DEFAULT_MODEL = 'gemini-2.5-flash';
 const COOLDOWN_DURATION_MS = 60 * 1000; // 60 seconds
 const MAX_FAILURES_PER_KEY = 5;
 const MAX_ATTEMPTS = 6;
