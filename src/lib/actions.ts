@@ -5,16 +5,25 @@ import { convertNaturalLanguageToLogic } from "@/ai/flows/convert-natural-langua
 import { type Logic } from "@/types";
 import { z } from "zod";
 
+const BaseConditionSchema = z.object({
+  sensor: z.enum(["light", "temperature", "motion"]),
+  operator: z.enum([">", "<", "=", "!="]),
+  value: z.union([z.number(), z.boolean(), z.string()])
+});
+
+const TriggerSchema: z.ZodType<any> = z.lazy(() => 
+  z.union([
+    BaseConditionSchema,
+    z.object({
+      type: z.enum(["all", "any"]),
+      conditions: z.array(TriggerSchema),
+    })
+  ])
+);
+
 const LogicSchema = z.object({
   name: z.string(),
-  trigger: z.object({
-    type: z.enum(["all", "any"]),
-    conditions: z.array(z.object({
-      sensor: z.enum(["light", "temperature", "motion"]),
-      operator: z.enum([">", "<", "=", "!="]),
-      value: z.union([z.number(), z.boolean(), z.string()])
-    }))
-  }),
+  trigger: TriggerSchema,
   action: z.object({
     type: z.enum(["flashBackground", "vibrate", "log", "toggle"]),
     payload: z.object({

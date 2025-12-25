@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { type Logic, type SensorData, type Condition, type EventLogEntry, type DeviceStates } from '@/types';
+import { type Logic, type SensorData, type Condition, type EventLogEntry, type DeviceStates, Trigger } from '@/types';
 import { toast } from './use-toast';
 
 const checkCondition = (condition: Condition, sensorData: SensorData): boolean => {
@@ -17,6 +17,18 @@ const checkCondition = (condition: Condition, sensorData: SensorData): boolean =
         default: return false;
     }
 };
+
+const evaluateTrigger = (trigger: Trigger, sensorData: SensorData): boolean => {
+    if ('sensor' in trigger) {
+        return checkCondition(trigger, sensorData);
+    }
+    
+    if (trigger.type === 'all') {
+        return trigger.conditions.every(subTrigger => evaluateTrigger(subTrigger, sensorData));
+    } else { // 'any'
+        return trigger.conditions.some(subTrigger => evaluateTrigger(subTrigger, sensorData));
+    }
+}
 
 const playBeep = () => {
     if (typeof window === 'undefined' || !window.AudioContext) return;
@@ -126,15 +138,7 @@ export const useLogicRunner = (
     useEffect(() => {
         if (typeof window === 'undefined' || !logic) return;
 
-        const { trigger } = logic;
-        const conditionResults = trigger.conditions.map(c => checkCondition(c, sensorData));
-
-        let shouldTrigger = false;
-        if (trigger.type === 'all') {
-            shouldTrigger = conditionResults.every(res => res === true);
-        } else { // 'any'
-            shouldTrigger = conditionResults.some(res => res === true);
-        }
+        const shouldTrigger = evaluateTrigger(logic.trigger, sensorData);
 
         const now = Date.now();
         if (shouldTrigger && (now - lastTriggerTime.current > 2000)) { // Debounce for 2 seconds

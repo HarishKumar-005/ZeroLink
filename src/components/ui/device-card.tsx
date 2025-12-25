@@ -1,7 +1,7 @@
 
 "use client";
 
-import { Logic } from "@/types";
+import { Logic, Trigger } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Thermometer, Sun, DoorOpen, DoorClosed, ChevronUp, ChevronDown } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
@@ -20,34 +20,21 @@ interface DeviceCardProps {
   logic: Logic | null;
 }
 
-const getIsActive = (logic: Logic | null, sensorType: SensorType, currentValue: number | boolean): boolean => {
+const getIsActive = (logic: Logic | null, sensorType: SensorType): boolean => {
     if (!logic) return false;
 
-    const relevantConditions = logic.trigger.conditions.filter(c => c.sensor === sensorType);
-    if (relevantConditions.length === 0) return false;
-
-    const check = (op: string, val: any) => {
-        const value = typeof currentValue === 'boolean' ? String(currentValue) : currentValue;
-        const conditionValue = typeof val === 'boolean' ? String(val) : val;
-
-        switch (op) {
-            case '>': return value > conditionValue;
-            case '<': return value < conditionValue;
-            case '=': return String(value).toLowerCase() === String(conditionValue).toLowerCase();
-            case '!=': return String(value).toLowerCase() !== String(conditionValue).toLowerCase();
-            default: return false;
+    const findRelevantConditions = (trigger: Trigger): boolean => {
+        if ('sensor' in trigger) {
+            return trigger.sensor === sensorType;
         }
+        return trigger.conditions.some(findRelevantConditions);
     };
-    
-    if (logic.trigger.type === 'all') {
-        return relevantConditions.every(c => check(c.operator, c.value));
-    } else { // 'any'
-        return relevantConditions.some(c => check(c.operator, c.value));
-    }
+
+    return findRelevantConditions(logic.trigger);
 };
 
 export const DeviceCard = ({ sensorType, value, onValueChange, logic }: DeviceCardProps) => {
-    const isActive = getIsActive(logic, sensorType, value);
+    const isActive = getIsActive(logic, sensorType);
 
     const renderIcon = () => {
         switch (sensorType) {

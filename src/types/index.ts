@@ -4,9 +4,10 @@ export type Condition = {
   value: number | boolean | string;
 };
 
-export type Trigger = {
+// A Trigger can be a single Condition or a group of other Triggers.
+export type Trigger = Condition | {
   type: 'all' | 'any';
-  conditions: Condition[];
+  conditions: Trigger[];
 };
 
 export type Action = {
