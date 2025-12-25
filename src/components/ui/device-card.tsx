@@ -21,16 +21,20 @@ interface DeviceCardProps {
 }
 
 const getIsActive = (logic: Logic | null, sensorType: SensorType): boolean => {
-    if (!logic) return false;
+    if (!logic || !logic.triggers) return false;
 
     const findRelevantConditions = (trigger: Trigger): boolean => {
         if ('sensor' in trigger) {
             return trigger.sensor === sensorType;
         }
-        return trigger.conditions.some(findRelevantConditions);
+        if ('conditions' in trigger) {
+            return trigger.conditions.some(findRelevantConditions);
+        }
+        return false;
     };
 
-    return logic.triggers.some(findRelevantConditions);
+    const triggersArray = Array.isArray(logic.triggers) ? logic.triggers : [logic.triggers];
+    return triggersArray.some(findRelevantConditions);
 };
 
 export const DeviceCard = ({ sensorType, value, onValueChange, logic }: DeviceCardProps) => {
