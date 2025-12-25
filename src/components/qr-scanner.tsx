@@ -83,10 +83,11 @@ export function QrScanner({ onScanSuccess }: QrScannerProps) {
     const wasScanning = scannerRef.current && scannerRef.current.isScanning;
     if (wasScanning) {
       try {
-        await scannerRef.current.stop();
+        await scannerRef.current!.stop();
         console.log('Scanner stopped.');
       } catch (err) {
-        console.error("Failed to stop scanner gracefully", err);
+        // This error is thrown by the library when stop() is called while it's already stopping.
+        // It's safe to ignore as it's part of the normal lifecycle.
       }
     }
     setCameraState('idle');
@@ -287,7 +288,5 @@ export function QrScanner({ onScanSuccess }: QrScannerProps) {
     </div>
   );
 }
-
-    
 
     
