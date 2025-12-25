@@ -98,7 +98,8 @@ OR
 }
 
 📌 Rules:
-- Accept multiple rules in input → produce \`triggers\` as an array.
+- If the user's request is ambiguous or doesn't fit the schema, default to a simple log action: { "name": "User Query Log", "triggers": [], "actions": [{ "type": "log", "payload": { "message": "User query: [original user input]" } }] }
+- Accept multiple rules in input → produce \`triggers\` and \`actions\` as arrays.
 - Support nested conditions using \`type: "all"\` for AND and \`type: "any"\` for OR logic.
 - Always return a top-level \`"name"\` field summarizing the rule(s).
 - Only use allowed sensors, actions, and field names — strict match.
@@ -143,12 +144,22 @@ export async function generateLogicAction(
     // Construct the full prompt
     const prompt = LOGIC_GENERATION_PROMPT_TEMPLATE.replace('{{naturalLanguage}}', naturalLanguage);
 
-    const jsonSchema = zodToJsonSchema(LogicSchema, "LogicSchema");
+    const fullJsonSchema = zodToJsonSchema(LogicSchema, "LogicSchema");
+    
+    // The Gemini API does not support top-level $schema, definitions, or $ref properties.
+    // We need to create a "clean" version of the schema for the API.
+    const apiClientSchema = {
+      ...fullJsonSchema,
+    };
+    delete (apiClientSchema as any).$schema;
+    delete (apiClientSchema as any).definitions;
+    delete (apiClientSchema as any).$ref;
+
 
     // Call the Gemini API using our key rotator
     const result = await generateWithFallback({
       prompt,
-      responseJsonSchema: jsonSchema,
+      responseJsonSchema: apiClientSchema,
       responseMimeType: 'application/json',
     });
 
@@ -194,3 +205,4 @@ export async function generateLogicAction(
     };
   }
 }
+
