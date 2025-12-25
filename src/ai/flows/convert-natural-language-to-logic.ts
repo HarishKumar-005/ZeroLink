@@ -44,8 +44,8 @@ const prompt = ai.definePrompt({
 Top-level object:
 {
   "name": string,
-  "triggers": Trigger | Trigger[],
-  "actions": Action | Action[]
+  "triggers": Trigger[],
+  "actions": Action[]
 }
 
 Trigger can be:
@@ -91,7 +91,8 @@ OR
 }
 
 📌 Rules:
-- Accept multiple rules in input → produce \`triggers\` as an array.
+- If the user's request is ambiguous or doesn't fit the schema, default to a simple log action: { "name": "User Query Log", "triggers": [], "actions": [{ "type": "log", "payload": { "message": "User query: [original user input]" } }] }
+- ALWAYS return 'triggers' and 'actions' as arrays, even if there is only one item.
 - Support nested conditions using \`type: "all"\` for AND and \`type: "any"\` for OR logic.
 - Always return a top-level \`"name"\` field summarizing the rule(s).
 - Only use allowed sensors, actions, and field names — strict match.
@@ -103,12 +104,12 @@ OR
 1️⃣ Input:
 "If temperature > 35 and light < 20 then water the pump."
 Output:
-{"name":"Heat + low light trigger","triggers":{"type":"all","conditions":[{"sensor":"temperature","operator":">","value":35},{"sensor":"light","operator":"<","value":20}]},"actions":{"type":"toggle","payload":{"device":"pump","state":"on"}}}
+{"name":"Heat + low light trigger","triggers":[{"type":"all","conditions":[{"sensor":"temperature","operator":">","value":35},{"sensor":"light","operator":"<","value":20}]}],"actions":[{"type":"toggle","payload":{"device":"pump","state":"on"}}]}
 
 2️⃣ Input:
 "If motion is detected and timeOfDay is night, turn on the light."
 Output:
-{"name":"Night motion light","triggers":{"type":"all","conditions":[{"sensor":"motion","operator":"=","value":true},{"sensor":"timeOfDay","operator":"=","value":"night"}]},"actions":{"type":"toggle","payload":{"device":"light","state":"on"}}}
+{"name":"Night motion light","triggers":[{"type":"all","conditions":[{"sensor":"motion","operator":"=","value":true},{"sensor":"timeOfDay","operator":"=","value":"night"}]}],"actions":[{"type":"toggle","payload":{"device":"light","state":"on"}}]}
 
 3️⃣ Input:
 "If temperature > 35 then water the pump. If motion is detected and it's night, turn on the light."

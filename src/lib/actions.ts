@@ -2,7 +2,7 @@
 "use server";
 
 import { generateWithFallback } from "@/lib/gemini-key-rotator";
-import { type Logic } from "@/types";
+import { type Logic, Trigger, Action } from "@/types";
 import { z } from "zod";
 import { zodToJsonSchema } from "zod-to-json-schema";
 
@@ -12,7 +12,7 @@ const BaseConditionSchema = z.object({
   value: z.union([z.number(), z.boolean(), z.string()])
 });
 
-const TriggerSchema: z.ZodType<any> = z.lazy(() => 
+const TriggerSchema: z.ZodType<Trigger> = z.lazy(() => 
   z.union([
     BaseConditionSchema,
     z.object({
@@ -22,7 +22,7 @@ const TriggerSchema: z.ZodType<any> = z.lazy(() =>
   ])
 );
 
-const ActionSchema = z.object({
+const ActionSchema: z.ZodType<Action> = z.object({
     type: z.enum(["flashBackground", "vibrate", "log", "toggle"]),
     payload: z.object({
         // Common
@@ -41,8 +41,8 @@ const ActionSchema = z.object({
 
 const LogicSchema = z.object({
   name: z.string(),
-  triggers: z.union([TriggerSchema, z.array(TriggerSchema)]),
-  actions: z.union([ActionSchema, z.array(ActionSchema)]),
+  triggers: z.array(TriggerSchema),
+  actions: z.array(ActionSchema),
 });
 
 // This is the prompt that will be sent to the Gemini API.
@@ -51,8 +51,8 @@ const LOGIC_GENERATION_PROMPT_TEMPLATE = `You are a deterministic assistant. You
 Top-level object:
 {
   "name": string,
-  "triggers": Trigger | Trigger[],
-  "actions": Action | Action[]
+  "triggers": Trigger[],
+  "actions": Action[]
 }
 
 Trigger can be:
@@ -99,7 +99,7 @@ OR
 
 📌 Rules:
 - If the user's request is ambiguous or doesn't fit the schema, default to a simple log action: { "name": "User Query Log", "triggers": [], "actions": [{ "type": "log", "payload": { "message": "User query: [original user input]" } }] }
-- Accept multiple rules in input → produce \`triggers\` and \`actions\` as arrays.
+- ALWAYS return 'triggers' and 'actions' as arrays, even if there is only one item.
 - Support nested conditions using \`type: "all"\` for AND and \`type: "any"\` for OR logic.
 - Always return a top-level \`"name"\` field summarizing the rule(s).
 - Only use allowed sensors, actions, and field names — strict match.
@@ -111,12 +111,12 @@ OR
 1️⃣ Input:
 "If temperature > 35 and light < 20 then water the pump."
 Output:
-{"name":"Heat + low light trigger","triggers":{"type":"all","conditions":[{"sensor":"temperature","operator":">","value":35},{"sensor":"light","operator":"<","value":20}]},"actions":{"type":"toggle","payload":{"device":"pump","state":"on"}}}
+{"name":"Heat + low light trigger","triggers":[{"type":"all","conditions":[{"sensor":"temperature","operator":">","value":35},{"sensor":"light","operator":"<","value":20}]}],"actions":[{"type":"toggle","payload":{"device":"pump","state":"on"}}]}
 
 2️⃣ Input:
 "If motion is detected and timeOfDay is night, turn on the light."
 Output:
-{"name":"Night motion light","triggers":{"type":"all","conditions":[{"sensor":"motion","operator":"=","value":true},{"sensor":"timeOfDay","operator":"=","value":"night"}]},"actions":{"type":"toggle","payload":{"device":"light","state":"on"}}}
+{"name":"Night motion light","triggers":[{"type":"all","conditions":[{"sensor":"motion","operator":"=","value":true},{"sensor":"timeOfDay","operator":"=","value":"night"}]}],"actions":[{"type":"toggle","payload":{"device":"light","state":"on"}}]}
 
 3️⃣ Input:
 "If temperature > 35 then water the pump. If motion is detected and it's night, turn on the light."
@@ -183,17 +183,7 @@ export async function generateLogicAction(
       };
     }
     
-    // Ensure triggers and actions are always arrays for consistent processing
-    const singleTrigger = validationResult.data.triggers;
-    const singleAction = validationResult.data.actions;
-
-    const logicWithArrays: Logic = {
-        ...validationResult.data,
-        triggers: Array.isArray(singleTrigger) ? singleTrigger : [singleTrigger],
-        actions: Array.isArray(singleAction) ? singleAction : [singleAction]
-    };
-
-    return { logic: logicWithArrays, error: null, rawJson: rawJsonResult };
+    return { logic: validationResult.data, error: null, rawJson: rawJsonResult };
 
   } catch (e) {
     console.error("Error generating logic:", e);
