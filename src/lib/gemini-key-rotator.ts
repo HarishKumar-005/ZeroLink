@@ -6,11 +6,12 @@ import { LRUCache } from 'lru-cache';
 import { createHash } from 'crypto';
 
 // The default model to use for Gemini API calls. Manually configured to use the gemini-1.5-flash model.
-const DEFAULT_MODEL = 'gemini-2.5-flash';
+const DEFAULT_MODEL = 'gemini-1.5-flash-latest';
 const COOLDOWN_DURATION_MS = 60 * 1000; // 60 seconds
 const MAX_FAILURES_PER_KEY = 5;
+const MAX_RETRIES = 10; // Increased from 5
 const BACKOFF_INITIAL_MS = 300;
-const BACKOFF_MAX_MS = 5000;
+const BACKOFF_MAX_MS = 10000; // Increased from 5000
 
 interface KeyState {
   cooldownUntil: number;
@@ -135,15 +136,15 @@ export async function generateWithFallback(
   let backoff = BACKOFF_INITIAL_MS;
   let attempts = 0;
 
-  while (true) { // Loop indefinitely until we succeed or hit a hard error
+  while (attempts < MAX_RETRIES) {
     attempts++;
     const { key: apiKey, waitMs } = getNextKey();
 
     if (!apiKey) {
-      if (waitMs === Infinity) {
-        return { success: false, error: 'All API keys are permanently disabled.', status: 503 };
+      if (waitMs === Infinity || attempts === MAX_RETRIES) {
+        return { success: false, error: 'All API keys are permanently disabled or on cooldown.', status: 503 };
       }
-      console.warn(`[GeminiKeyRotator] All keys are on cooldown. Waiting for ${waitMs}ms...`);
+      console.warn(`[GeminiKeyRotator] All keys are on cooldown. Waiting for ${waitMs}ms before retry #${attempts + 1}...`);
       await sleepWithJitter(waitMs);
       continue; // Retry getting a key
     }
@@ -196,7 +197,9 @@ export async function generateWithFallback(
       if (!result.candidates || result.candidates.length === 0) {
         // Handle cases where the API returns a 200 OK but no content (e.g., safety blocked)
         const blockReason = result.promptFeedback?.blockReason || 'No content returned';
-        throw new Error(`Request was blocked or returned no candidates. Reason: ${blockReason}`);
+        // This is a "successful" response in that the key worked, but the content was blocked.
+        // We shouldn't retry this with other keys.
+        return { success: false, error: `Content generation was blocked. Reason: ${blockReason}`, status: 400 };
       }
 
       const responseData = result.candidates[0].content.parts[0].text;
@@ -211,6 +214,9 @@ export async function generateWithFallback(
       backoff = Math.min(BACKOFF_MAX_MS, backoff * 2);
     }
   }
+
+  // If the loop finishes, it means all retries have been exhausted.
+  return { success: false, error: 'All retry attempts failed to get a response from the AI service.', status: 503 };
 }
 
 /**
