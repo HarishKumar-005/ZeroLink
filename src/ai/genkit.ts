@@ -1,5 +1,5 @@
 
-import {genkit, type ModelAction, type Plugin} from 'genkit';
+import {genkit, type ModelAction, defineModel} from 'genkit';
 import {googleAI} from '@genkit-ai/google-genai';
 import {generateWithFallback, type RequestOptions} from '../lib/gemini-key-rotator';
 import {zodToJsonSchema} from 'zod-to-json-schema';
@@ -13,7 +13,7 @@ const geminiRotatorModel: ModelAction = async request => {
   // 2. Prepare the options for our key rotator.
   const options: RequestOptions = {
     prompt,
-    model: 'gemini-2.5-flash', // We are targeting a specific model
+    model: 'gemini-1.5-flash-latest', // We are targeting a specific model
   };
 
   // 3. CRITICAL FIX: Correctly extract the JSON schema if the request asks for structured output.
@@ -64,38 +64,35 @@ const geminiRotatorModel: ModelAction = async request => {
   };
 };
 
-/**
- * Creates a Genkit plugin that provides the key-rotating Gemini model.
- */
-export const geminiRotator: Plugin = (name = 'geminiRotator') => {
-  return (ai) => ({
-    name,
-    models: [
-      ai.defineModel(
-        {
-          name: 'googleai/gemini-rotator',
-          label: 'Gemini (Key Rotator)',
-          versions: ['gemini-2.5-flash'],
-          supports: {
-            media: false,
-            multiturn: true,
-            tools: false,
-            systemRole: false,
-            output: ['text', 'structured'],
-          },
-        },
-        geminiRotatorModel
-      ),
-    ],
-  });
-};
+// 1. Define our custom rotator model using the base `defineModel` utility.
+const rotatorModel = defineModel(
+  {
+    name: 'googleai/gemini-2.5-flash-rotator',
+    label: 'Google AI - Gemini 2.5 Flash Rotator',
+    versions: ['gemini-2.5-flash'],
+    supports: {
+      media: false,
+      multiturn: true,
+      tools: false,
+      systemRole: true,
+      output: ['text', 'structured'],
+    },
+  },
+  geminiRotatorModel
+);
 
 
-// 3. Export a final `ai` object that includes the custom model and sets it as the default.
+// 2. Initialize Genkit with the standard googleAI plugin and our custom model.
 export const ai = genkit({
-  plugins: [googleAI(), geminiRotator()],
-  model: 'googleai/gemini-rotator', // Set our custom rotator model as the default
+  plugins: [googleAI()],
+  models: [rotatorModel], // Register our custom model
   flowStateStore: 'firebase',
   traceStore: 'firebase',
   flowStallTimeout: 60000,
+});
+
+
+// 3. Set our custom rotator model as the default for all subsequent calls.
+ai.configure({
+    model: 'googleai/gemini-2.5-flash-rotator',
 });
