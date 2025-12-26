@@ -12,14 +12,6 @@ import { Switch } from './ui/switch';
 import { Button } from './ui/button';
 import { Moon, Flame } from 'lucide-react';
 import type { UseFormReturn } from 'react-hook-form';
-import { z } from 'zod';
-
-const FormSchema = z.object({
-  naturalLanguage: z.string().min(10, {
-    message: "Description must be at least 10 characters.",
-  }),
-});
-type FormValues = z.infer<typeof FormSchema>;
 
 export function SenderView() {
   const [generatedLogic, setGeneratedLogic] = useState<Logic | null>(null);
@@ -27,7 +19,7 @@ export function SenderView() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [showDebug, setShowDebug] = useState(false);
-  const formRef = useRef<UseFormReturn<FormValues>>(null);
+  const formRef = useRef<any>(null);
 
   const qrDisplayRef = useRef<HTMLDivElement>(null);
   const isDevelopment = process.env.NODE_ENV === 'development';
@@ -38,7 +30,7 @@ export function SenderView() {
     }
   }, [generatedLogic]);
 
-  const handleFormSubmit = async (logic: Logic | null, error: string | null, rawJson: string | null) => {
+  const handleFormSubmit = (logic: Logic | null, error: string | null, rawJson: string | null) => {
     setIsLoading(false);
     setRawJson(rawJson);
     if (error) {
@@ -53,13 +45,10 @@ export function SenderView() {
   const handlePrefillClick = (prompt: string) => {
     if (formRef.current) {
       formRef.current.setValue('naturalLanguage', prompt);
-      const formElement = (formRef.current as any).formRef.current;
+      const formElement = formRef.current.formRef.current;
       if (formElement) {
-        // We need to find the form and submit it programatically
-        const form = formElement.closest('form');
-        if (form) {
-            form.requestSubmit();
-        }
+        // Trigger the submit handler programmatically
+        formElement.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true }));
       }
     }
   };

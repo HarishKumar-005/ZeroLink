@@ -30,11 +30,7 @@ type FormValues = z.infer<typeof FormSchema>;
 interface LogicInputFormProps {
   onSubmit: (logic: Logic | null, error: string | null, rawJson: string | null) => void;
   setIsLoading: (loading: boolean) => void;
-  formRef: React.RefObject<{
-      formRef: React.RefObject<HTMLFormElement>;
-      setValue: UseFormReturn<FormValues>['setValue'];
-      handleSubmit: UseFormReturn<FormValues>['handleSubmit'];
-  }>;
+  formRef: React.RefObject<any>;
 }
 
 export function LogicInputForm({ onSubmit, setIsLoading, formRef: parentRef }: LogicInputFormProps) {
@@ -70,10 +66,16 @@ export function LogicInputForm({ onSubmit, setIsLoading, formRef: parentRef }: L
 
     onSubmit(logic, error, rawJson);
   }
+  
+  const processSubmit = (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault(); // This is the fix to prevent double submission
+    form.handleSubmit(handleFormSubmit)(e);
+  };
+
 
   return (
     <Form {...form}>
-      <form ref={internalFormRef} onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-6">
+      <form ref={internalFormRef} onSubmit={processSubmit} className="space-y-6">
         <FormField
           control={form.control}
           name="naturalLanguage"
