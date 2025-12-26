@@ -83,6 +83,20 @@
   body {
     @apply bg-background text-foreground;
   }
+  
+  body.logic-pulse {
+    animation: logic-pulse-animation 400ms ease-out;
+  }
+  
+  @keyframes logic-pulse-animation {
+    0%, 100% { 
+      filter: brightness(1); 
+    }
+    50% { 
+      filter: brightness(1.1) contrast(1.1);
+      background-color: hsl(var(--accent) / 0.1);
+    }
+  }
 }
 
 @layer components {

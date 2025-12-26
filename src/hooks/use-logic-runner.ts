@@ -44,25 +44,23 @@ const evaluateTrigger = (trigger: Trigger, sensorData: SensorData): boolean => {
     }
 }
 
-const playBeep = () => {
-    if (typeof window === 'undefined' || !window.AudioContext) return;
-    try {
-        const audioContext = new (window.AudioContext || (window as any).webkitAudioContext)();
-        const oscillator = audioContext.createOscillator();
-        const gainNode = audioContext.createGain();
+// Triggers a brief visual pulse and haptic feedback
+const triggerFeedback = () => {
+    if (typeof window === 'undefined') return;
 
-        oscillator.connect(gainNode);
-        gainNode.connect(audioContext.destination);
-
-        oscillator.type = 'sine';
-        oscillator.frequency.setValueAtTime(660, audioContext.currentTime);
-        gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
-        gainNode.gain.exponentialRampToValueAtTime(0.0001, audioContext.currentTime + 0.3);
-        
-        oscillator.start(audioContext.currentTime);
-        oscillator.stop(audioContext.currentTime + 0.3);
-    } catch (e) {
-        console.error("Audio context error:", e);
+    // Visual pulse effect
+    document.body.classList.remove('logic-pulse');
+    // Use a timeout to ensure the class is re-applied for rapid triggers
+    setTimeout(() => {
+        document.body.classList.add('logic-pulse');
+        setTimeout(() => document.body.classList.remove('logic-pulse'), 400);
+    }, 10);
+    
+    // Haptic feedback
+    if (navigator.vibrate) {
+        // This will only work if the user has interacted with the page.
+        // It fails silently if blocked by the browser.
+        navigator.vibrate(150);
     }
 };
 
@@ -83,12 +81,14 @@ export const useLogicRunner = (
     const triggerAction = useCallback((action: Action, logicName: string) => {
         const defaultMessage = `Action '${action.type}' triggered by '${logicName}'`;
         
-        // Log every action for consistent feedback, unless it's a toggle with a custom message
+        // Log every action for consistent feedback
         if (action.type !== 'toggle') {
             const message = action.payload?.message || defaultMessage;
             addLogEntry(message);
         }
-        playBeep();
+
+        // Trigger the new visual and haptic feedback
+        triggerFeedback();
 
         switch (action.type) {
             case 'flashBackground':
