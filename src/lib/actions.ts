@@ -2,7 +2,6 @@
 "use server";
 
 import { type Logic } from "@/types";
-import { convertNaturalLanguageToLogic } from "@/ai/flows/convert-natural-language-to-logic";
 
 export async function generateLogicAction(
   naturalLanguage: string
@@ -11,22 +10,29 @@ export async function generateLogicAction(
     return { logic: null, error: "Please enter a description for the logic.", rawJson: null };
   }
 
-  let rawJsonResult: string | null = null;
   try {
-    const result = await convertNaturalLanguageToLogic({ naturalLanguage });
-    
-    rawJsonResult = result.logicJson;
+    const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/generate-logic`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ prompt: naturalLanguage }),
+    });
 
-    // The flow now returns a stringified JSON. We need to parse it.
-    const logicObject = JSON.parse(result.logicJson);
+    const result = await response.json();
 
-    // Although the flow should return the correct schema, we can still validate it here as a safeguard.
-    // For now, we trust the flow which has its own output schema validation.
-    
-    // The AI might return a single trigger/action, but our runner expects arrays.
-    // To be safe, let's normalize it here.
+    if (!response.ok) {
+        // Forward the user-friendly error from the API route
+        return { logic: null, error: result.error || 'An unknown error occurred.', rawJson: null };
+    }
+
+    // The API now returns the validated logic and rawJson in a specific structure
+    const logicObject = result.logic;
+    const rawJsonResult = result.rawJson;
+
+    // The API route now handles validation and normalization. 
+    // We can trust the structure if the request was successful.
     const normalizedLogic: Logic = {
         name: logicObject.name,
+        // Ensure triggers/actions are always arrays for consistent frontend handling.
         triggers: Array.isArray(logicObject.triggers) ? logicObject.triggers : [logicObject.triggers],
         actions: Array.isArray(logicObject.actions) ? logicObject.actions : [logicObject.actions],
     }
@@ -34,12 +40,12 @@ export async function generateLogicAction(
     return { logic: normalizedLogic, error: null, rawJson: rawJsonResult };
 
   } catch (e) {
-    console.error("Error generating logic:", e);
+    console.error("Error calling generate-logic API:", e);
     const errorMessage = e instanceof Error ? e.message : "An unknown error occurred.";
     return { 
       logic: null, 
-      error: `Failed to generate logic. The AI may have returned an unexpected format. Details: ${errorMessage}`,
-      rawJson: rawJsonResult
+      error: `Failed to communicate with the generation service. Details: ${errorMessage}`,
+      rawJson: null
     };
   }
 }

@@ -1,11 +1,12 @@
+
 /**
  * @fileoverview A production-ready Gemini API key rotator with retry, backoff, and cooldown logic.
  */
 import { LRUCache } from 'lru-cache';
 import { createHash } from 'crypto';
 
-// The default model to use for Gemini API calls. Manually configured to use the gemini-2.5-flash model.
-const DEFAULT_MODEL = 'gemini-2.5-flash';
+// The default model to use for Gemini API calls. Manually configured to use the gemini-1.5-flash model.
+const DEFAULT_MODEL = 'gemini-1.5-flash-latest';
 const COOLDOWN_DURATION_MS = 60 * 1000; // 60 seconds
 const MAX_FAILURES_PER_KEY = 5;
 const BACKOFF_INITIAL_MS = 300;
@@ -20,8 +21,6 @@ interface KeyState {
 export interface RequestOptions {
   prompt: string;
   model?: string;
-  responseJsonSchema?: Record<string, any>;
-  responseMimeType?: 'application/json';
 }
 
 interface SuccessResponse {
@@ -84,7 +83,6 @@ function getNextKey(): { key: string | null, waitMs: number } {
   if (totalKeys === 0) return { key: null, waitMs: 0 };
 
   let shortestWait = Infinity;
-  let allKeysOnCooldown = true;
 
   for (let i = 0; i < totalKeys; i++) {
     const key = apiKeys[currentKeyIndex];
@@ -125,8 +123,7 @@ export async function generateWithFallback(
   const cacheKey = createHash('sha256')
     .update(
       options.prompt +
-        (options.model || DEFAULT_MODEL) +
-        JSON.stringify(options.responseJsonSchema || {})
+        (options.model || DEFAULT_MODEL)
     )
     .digest('hex');
 
@@ -160,13 +157,7 @@ export async function generateWithFallback(
 
       const body: any = {
         contents: [{ parts: [{ text: options.prompt }] }],
-        generationConfig: {}
       };
-
-      if (options.responseJsonSchema && options.responseMimeType === 'application/json') {
-        body.generationConfig.response_mime_type = 'application/json';
-        body.generationConfig.response_schema = options.responseJsonSchema;
-      }
       
       const response = await fetch(endpoint, {
         method: 'POST',
@@ -210,17 +201,8 @@ export async function generateWithFallback(
 
       const responseData = result.candidates[0].content.parts[0].text;
       
-      let finalData = responseData;
-      if (options.responseMimeType === 'application/json') {
-          try {
-            finalData = JSON.parse(responseData);
-          } catch (e) {
-            throw new Error(`Failed to parse JSON response: ${responseData}`);
-          }
-      }
-      
-      cache.set(cacheKey, finalData);
-      return { success: true, data: finalData };
+      cache.set(cacheKey, responseData);
+      return { success: true, data: responseData };
 
     } catch (error) {
       console.error(`[GeminiKeyRotator] Error with key ${maskKey(apiKey)}:`, error);
@@ -238,4 +220,21 @@ export async function generateWithFallback(
 const sleepWithJitter = (ms: number) => {
   const jitter = Math.random() * 200 - 100; // -100ms to +100ms
   return new Promise(resolve => setTimeout(resolve, Math.max(0, ms + jitter)));
+}
+
+/**
+ * Gets the current status of all API keys for debugging.
+ */
+export async function getKeyStatus() {
+  initializeKeys();
+  const now = Date.now();
+  return apiKeys.map(key => {
+    const state = keyStates.get(key)!;
+    return {
+      key: maskKey(key),
+      status: state.isDisabled ? 'disabled' : (now < state.cooldownUntil ? 'cooldown' : 'available'),
+      failures: state.failures,
+      cooldownEndsIn: now < state.cooldownUntil ? `${Math.round((state.cooldownUntil - now) / 1000)}s` : 'N/A',
+    };
+  });
 }
