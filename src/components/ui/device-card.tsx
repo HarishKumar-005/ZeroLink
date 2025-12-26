@@ -1,7 +1,7 @@
 
 "use client";
 
-import { Logic, Trigger } from "@/types";
+import { Logic, Trigger } from "@/lib/schema";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Thermometer, Sun, DoorOpen, DoorClosed, ChevronUp, ChevronDown } from "lucide-react";
 import { Slider } from "@/components/ui/slider";

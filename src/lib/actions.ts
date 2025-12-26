@@ -1,7 +1,33 @@
 
 "use server";
 
-import { type Logic } from "@/types";
+import { LogicSchema, type Logic } from "@/lib/schema";
+import { generateWithFallback } from '@/lib/gemini-key-rotator';
+
+const SYSTEM_PROMPT = `You are a logic compiler. Convert user instructions into JSON only.
+Return a single JSON object matching this shape:
+
+{
+  name: string,
+  triggers: Trigger | Trigger[],
+  actions: Action | Action[]
+}
+
+Trigger:
+- Simple: { sensor: 'temperature'|'light'|'motion'|'timeOfDay', operator: '>'|'<'|'='|'!=', value: number|boolean|'day'|'night' }
+- Group: { type: 'all'|'any', conditions: Trigger[] }
+
+Action:
+- { type: 'log', payload: { message: string } }
+- { type: 'toggle', payload: { device: 'light'|'fan'|'pump'|'siren', state: 'on'|'off' } }
+- { type: 'flashBackground', payload: {} }
+
+Rules:
+- Multiple sentences → triggers array
+- Nested AND/OR → recursive groups
+- motion uses boolean
+- timeOfDay uses 'day' or 'night'
+- Return ONLY JSON. No markdown. No explanation.`;
 
 export async function generateLogicAction(
   naturalLanguage: string
@@ -10,38 +36,64 @@ export async function generateLogicAction(
     return { logic: null, error: "Please enter a description for the logic.", rawJson: null };
   }
 
+  const fullPrompt = `${SYSTEM_PROMPT}\n\nUser Prompt: "${naturalLanguage}"`;
+
   try {
-    // Use a relative path for the API call, which is robust for both dev and prod.
-    const response = await fetch('/api/generate-logic', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ prompt: naturalLanguage }),
+    const result = await generateWithFallback({
+      prompt: fullPrompt,
+      model: 'gemini-1.5-flash-latest',
     });
 
-    const result = await response.json();
-
-    if (!response.ok) {
-        // Forward the user-friendly error from the API route
-        return { logic: null, error: result.error || 'An unknown error occurred.', rawJson: null };
+    if (!result.success) {
+      console.error('[generateLogicAction] Key rotator failed:', result.error);
+      return { 
+          logic: null, 
+          error: 'The AI service is currently unavailable or rate-limited.', 
+          rawJson: null 
+      };
     }
+    
+    let rawJsonResult: string;
+    try {
+        const aiResponse = result.data as string;
+        // AI might wrap the JSON in markdown, so we need to extract it.
+        const match = aiResponse.match(/```(json)?\s*([\s\S]*?)\s*```/);
+        rawJsonResult = match ? match[2] : aiResponse;
+        
+        const logicObject = JSON.parse(rawJsonResult);
 
-    // The API now returns the validated logic and rawJson in a specific structure
-    const logicObject = result.logic;
-    const rawJsonResult = result.rawJson;
+        // Zod is the source of truth. Validate the AI's output.
+        const validation = LogicSchema.safeParse(logicObject);
 
-    // The API route now handles validation and normalization. 
-    // We can trust the structure if the request was successful.
-    const normalizedLogic: Logic = {
-        name: logicObject.name,
-        // Ensure triggers/actions are always arrays for consistent frontend handling.
-        triggers: Array.isArray(logicObject.triggers) ? logicObject.triggers : [logicObject.triggers],
-        actions: Array.isArray(logicObject.actions) ? logicObject.actions : [logicObject.actions],
+        if (!validation.success) {
+            console.error('[generateLogicAction] Zod validation failed:', validation.error.flatten());
+            return { 
+                logic: null,
+                error: "The AI returned a response with an invalid structure. Please try rephrasing your request.",
+                rawJson: rawJsonResult
+            };
+        }
+
+        const validatedLogic = validation.data;
+        const normalizedLogic: Logic = {
+            name: validatedLogic.name,
+            triggers: Array.isArray(validatedLogic.triggers) ? validatedLogic.triggers : [validatedLogic.triggers],
+            actions: Array.isArray(validatedLogic.actions) ? validatedLogic.actions : [validatedLogic.actions],
+        }
+
+        return { logic: normalizedLogic, error: null, rawJson: rawJsonResult };
+
+    } catch (e) {
+      console.error('[generateLogicAction] JSON parsing/validation error:', e, "Raw response:", result.data);
+      return { 
+          logic: null, 
+          error: 'The AI returned invalid JSON. Please try again.',
+          rawJson: result.data as string
+      };
     }
-
-    return { logic: normalizedLogic, error: null, rawJson: rawJsonResult };
 
   } catch (e) {
-    console.error("Error calling generate-logic API:", e);
+    console.error("[generateLogicAction] General error:", e);
     const errorMessage = e instanceof Error ? e.message : "An unknown error occurred.";
     return { 
       logic: null, 

@@ -1,40 +1,8 @@
 
-export type Condition = {
-  sensor: 'light' | 'temperature' | 'motion' | 'timeOfDay';
-  operator: '>' | '<' | '=' | '!=';
-  value: number | boolean | string;
-};
+// All core types are now inferred from the Zod schemas in `src/lib/schema.ts`.
+// This file can be expanded with other application types that are not part of the Logic schema.
 
-// A Trigger can be a single Condition or a group of other Triggers.
-export type Trigger = Condition | {
-  type: 'all' | 'any';
-  conditions: Trigger[];
-};
-
-export type Action = {
-  type: 'flashBackground' | 'vibrate' | 'log' | 'toggle';
-  payload?: {
-    // For flashBackground, vibrate, log
-    message?: string;
-    
-    // For flashBackground
-    color?: string;
-
-    // For vibrate
-    duration?: number;
-
-    // For toggle
-    device?: 'light' | 'fan' | 'pump' | 'siren';
-    state?: 'on' | 'off';
-  };
-};
-
-export interface Logic {
-  id?: string; // for storage
-  name: string;
-  triggers: Trigger | Trigger[];
-  actions: Action | Action[];
-}
+export type { Logic, Action, Trigger, Condition } from "@/lib/schema";
 
 export type SensorData = {
   light: number;

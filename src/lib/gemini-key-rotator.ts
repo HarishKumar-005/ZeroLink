@@ -6,7 +6,7 @@ import { LRUCache } from 'lru-cache';
 import { createHash } from 'crypto';
 
 // The default model to use for Gemini API calls. Manually configured to use the gemini-1.5-flash model.
-const DEFAULT_MODEL = 'gemini-1.5-flash-latest';
+const DEFAULT_MODEL = 'gemini-2.5-flash';
 const COOLDOWN_DURATION_MS = 60 * 1000; // 60 seconds
 const MAX_FAILURES_PER_KEY = 5;
 const BACKOFF_INITIAL_MS = 300;

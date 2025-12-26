@@ -3,7 +3,7 @@
 
 import React, { useMemo, useEffect } from 'react';
 import { QRCodeSVG } from 'qrcode.react';
-import { type Logic } from '@/types';
+import { type Logic } from '@/lib/schema';
 import { Card, CardContent } from '@/components/ui/card';
 import {
   Carousel,

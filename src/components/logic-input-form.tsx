@@ -16,7 +16,7 @@ import {
 import { Textarea } from "@/components/ui/textarea";
 import { useToast } from "@/hooks/use-toast";
 import { generateLogicAction } from "@/lib/actions";
-import { type Logic } from "@/types";
+import { type Logic } from "@/lib/schema";
 import { Sparkles } from "lucide-react";
 import React from "react";
 

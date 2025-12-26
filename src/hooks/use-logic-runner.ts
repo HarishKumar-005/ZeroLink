@@ -2,7 +2,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { type Logic, type SensorData, type Condition, type EventLogEntry, type DeviceStates, Trigger, Action } from '@/types';
+import { type Logic, type SensorData, type Condition, type EventLogEntry, type DeviceStates, Trigger, Action } from '@/lib/schema';
 import { toast } from './use-toast';
 
 const getTimeOfDay = () => {
@@ -34,13 +34,14 @@ const checkCondition = (condition: Condition, sensorData: SensorData): boolean =
 
 const evaluateTrigger = (trigger: Trigger, sensorData: SensorData): boolean => {
     if ('sensor' in trigger) {
-        return checkCondition(trigger, sensorData);
+        return checkCondition(trigger as Condition, sensorData);
     }
     
-    if (trigger.type === 'all') {
-        return trigger.conditions.every(subTrigger => evaluateTrigger(subTrigger, sensorData));
+    const triggerGroup = trigger as { type: 'all' | 'any', conditions: Trigger[] };
+    if (triggerGroup.type === 'all') {
+        return triggerGroup.conditions.every(subTrigger => evaluateTrigger(subTrigger, sensorData));
     } else { // 'any'
-        return trigger.conditions.some(subTrigger => evaluateTrigger(subTrigger, sensorData));
+        return triggerGroup.conditions.some(subTrigger => evaluateTrigger(subTrigger, sensorData));
     }
 }
 

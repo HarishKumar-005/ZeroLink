@@ -3,7 +3,7 @@
 
 import { useEffect, useRef, useState, useCallback } from 'react';
 import { Html5Qrcode, type Html5QrcodeError, type Html5QrcodeResult } from 'html5-qrcode';
-import { type Logic } from '@/types';
+import { type Logic } from '@/lib/schema';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from './ui/button';
 import { Camera, RefreshCw, Loader2, X, ShieldAlert } from 'lucide-react';

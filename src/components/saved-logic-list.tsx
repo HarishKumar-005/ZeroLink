@@ -1,6 +1,7 @@
+
 "use client";
 
-import { type Logic } from "@/types";
+import { type Logic } from "@/lib/schema";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "./ui/card";
 import { Button } from "./ui/button";
 import { ScrollArea } from "./ui/scroll-area";

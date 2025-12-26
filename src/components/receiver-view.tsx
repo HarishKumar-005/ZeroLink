@@ -138,8 +138,8 @@ export function ReceiverView() {
         // Normalize to the array structure for consistency if needed, although the runner handles both
         const logicToLoad: Logic = {
           name: parsedLogic.name,
-          triggers: parsedLogic.triggers || parsedLogic.trigger,
-          actions: parsedLogic.actions || parsedLogic.action,
+          triggers: Array.isArray(parsedLogic.triggers) ? parsedLogic.triggers : [parsedLogic.trigger],
+          actions: Array.isArray(parsedLogic.actions) ? parsedLogic.actions : [parsedLogic.action],
         };
         handleLogicScanned(logicToLoad);
         setManualJson('');

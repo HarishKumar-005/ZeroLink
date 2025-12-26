@@ -5,7 +5,7 @@ import { useState, useEffect, useRef } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { LogicInputForm } from '@/components/logic-input-form';
 import { QrCodeDisplay } from '@/components/qr-code-display';
-import { type Logic } from '@/types';
+import { type Logic } from '@/lib/schema';
 import { Skeleton } from './ui/skeleton';
 import { Label } from './ui/label';
 import { Switch } from './ui/switch';
