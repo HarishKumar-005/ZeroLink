@@ -11,7 +11,8 @@ export async function generateLogicAction(
   }
 
   try {
-    const response = await fetch(`${process.env.NEXT_PUBLIC_APP_URL}/api/generate-logic`, {
+    // Use a relative path for the API call, which is robust for both dev and prod.
+    const response = await fetch('/api/generate-logic', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ prompt: naturalLanguage }),
