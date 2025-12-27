@@ -4,6 +4,7 @@ import './globals.css';
 import { Toaster } from '@/components/ui/toaster';
 import { Analytics } from '@vercel/analytics/react';
 import { SpeedInsights } from '@vercel/speed-insights/next';
+import ErrorBoundary from '@/components/error-boundary';
 
 export const metadata: Metadata = {
   title: 'ZeroLink – Offline Automation Protocol',
@@ -31,10 +32,12 @@ export default function RootLayout({
         <link href="https://fonts.googleapis.com/css2?family=Inter&display=swap" rel="stylesheet" />
       </head>
       <body className="font-body antialiased">
-        <Analytics />
-        <SpeedInsights />
-        {children}
-        <Toaster />
+        <ErrorBoundary>
+          <Analytics />
+          <SpeedInsights />
+          {children}
+          <Toaster />
+        </ErrorBoundary>
       </body>
     </html>
   );

@@ -9,6 +9,7 @@ const MAX_DYNAMIC_ITEMS = 50;
 const STATIC_ASSETS = [
   '/',
   '/manifest.json',
+  '/offline.html',
   // Next.js static assets will be cached on first fetch
 ];
 
@@ -135,7 +136,10 @@ self.addEventListener('fetch', event => {
           return response;
         }).catch(err => {
           console.error('[SW] Fetch failed:', err);
-          // Return a custom offline page or response
+          // Return offline page for navigation requests
+          if (request.mode === 'navigate') {
+            return caches.match('/offline.html');
+          }
           return new Response('Offline', { status: 503 });
         });
       })
