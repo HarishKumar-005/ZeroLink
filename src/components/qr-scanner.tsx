@@ -2,7 +2,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from 'react';
-import { Html5Qrcode, type Html5QrcodeError, type Html5QrcodeResult } from 'html5-qrcode';
+import { Html5Qrcode, type Html5QrcodeResult } from 'html5-qrcode';
 import { type Logic } from '@/lib/schema';
 import { useToast } from '@/hooks/use-toast';
 import { Button } from './ui/button';
@@ -23,6 +23,18 @@ type QrChunk = {
   chunkIndex: number;
   totalChunks: number;
   data: string;
+  checksum?: string; // Optional for backward compatibility
+}
+
+// Simple checksum function for data integrity validation
+function calculateChecksum(data: string): string {
+  let hash = 0;
+  for (let i = 0; i < data.length; i++) {
+    const char = data.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  return Math.abs(hash).toString(36);
 }
 
 const qrboxFunction = (viewfinderWidth: number, viewfinderHeight: number) => {
@@ -115,6 +127,19 @@ export function QrScanner({ onScanSuccess }: QrScannerProps) {
       // It's a structured chunk
       if (parsed.sessionId && parsed.chunkIndex !== undefined && parsed.totalChunks && parsed.data) {
           
+          // Validate checksum if present
+          if (parsed.checksum) {
+            const expectedChecksum = calculateChecksum(parsed.data);
+            if (parsed.checksum !== expectedChecksum) {
+              toast({ 
+                title: 'Corrupted QR Code', 
+                description: `Part ${parsed.chunkIndex} failed integrity check. Please try scanning again.`,
+                variant: 'destructive' 
+              });
+              return;
+            }
+          }
+          
           if (scanSessionId === null) {
               // First chunk of a new session
               setScanSessionId(parsed.sessionId);
@@ -192,7 +217,7 @@ export function QrScanner({ onScanSuccess }: QrScannerProps) {
             { facingMode: "environment" },
             { fps: 5, qrbox: qrboxFunction, aspectRatio: 1.0 },
             handleScanSuccess,
-            (errorMessage: string, error: Html5QrcodeError) => { /* ignore parse errors */ }
+            (errorMessage: string) => { /* ignore parse errors */ }
         );
         console.log('Scanner started.');
         setCameraState('streaming');

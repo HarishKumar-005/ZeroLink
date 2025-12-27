@@ -6,10 +6,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Thermometer, Sun, DoorOpen, DoorClosed, ChevronUp, ChevronDown } from "lucide-react";
 import { Slider } from "@/components/ui/slider";
 import { Switch } from "@/components/ui/switch";
-import { Button } from "./button";
-import { Input } from "./input";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
-import { Badge } from "./badge";
+import { Badge } from "@/components/ui/badge";
 
 type SensorType = "temperature" | "light" | "motion";
 
@@ -58,8 +58,8 @@ export const DeviceCard = ({ sensorType, value, onValueChange, logic }: DeviceCa
                     <Input 
                         type="number" 
                         className="w-20 text-center text-2xl font-bold" 
-                        value={value} 
-                        onChange={(e) => onValueChange(Number(e.target.value))}
+                        value={String(value)} 
+                        onChange={(e: React.ChangeEvent<HTMLInputElement>) => onValueChange(Number(e.target.value))}
                     />
                     <Button variant="ghost" size="icon" onClick={() => onValueChange((value as number) + 1)}><ChevronUp className="w-5 h-5" /></Button>
                 </div>

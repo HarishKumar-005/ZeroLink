@@ -73,7 +73,7 @@ export function ReceiverView() {
     persistState(SENSOR_STORAGE_KEY, newSensorData);
   };
   
-  const handleDeviceStateChange = (device: keyof DeviceStates, state: boolean) => {
+  const handleDeviceStateChange = (device: 'fan' | 'light' | 'pump' | 'siren', state: boolean) => {
     setDeviceStates(prev => {
         const newStates = { ...prev, [device]: state };
         persistState(DEVICE_STATE_STORAGE_KEY, newStates);
@@ -132,12 +132,39 @@ export function ReceiverView() {
   const [manualJson, setManualJson] = useState('');
   const handleManualLoad = () => {
     try {
-      const parsedLogic = JSON.parse(manualJson) as any;
+      // Sanitize and validate input
+      const trimmedJson = manualJson.trim();
+      if (!trimmedJson) {
+        toast({
+          title: "Empty Input",
+          description: "Please paste valid logic JSON before loading.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      // Check for potentially malicious patterns before parsing
+      if (trimmedJson.includes('<script') || trimmedJson.includes('javascript:')) {
+        toast({
+          title: "Invalid Input",
+          description: "The input contains potentially unsafe content.",
+          variant: "destructive"
+        });
+        return;
+      }
+      
+      const parsedLogic = JSON.parse(trimmedJson) as any;
+      
+      // Validate structure before processing
+      if (!parsedLogic || typeof parsedLogic !== 'object') {
+        throw new Error('Invalid logic structure.');
+      }
+      
       // Check for the new flexible structure
       if (parsedLogic.name && (parsedLogic.trigger || parsedLogic.triggers) && (parsedLogic.action || parsedLogic.actions)) {
-        // Normalize to the array structure for consistency if needed, although the runner handles both
+        // Normalize to the array structure for consistency if needed
         const logicToLoad: Logic = {
-          name: parsedLogic.name,
+          name: String(parsedLogic.name).substring(0, 200), // Limit name length
           triggers: Array.isArray(parsedLogic.triggers) ? parsedLogic.triggers : [parsedLogic.trigger],
           actions: Array.isArray(parsedLogic.actions) ? parsedLogic.actions : [parsedLogic.action],
         };
@@ -147,9 +174,10 @@ export function ReceiverView() {
         throw new Error('Invalid logic structure. Must include name, and triggers/actions.');
       }
     } catch (e) {
+      const errorMsg = e instanceof Error ? e.message : 'Unknown error';
       toast({
         title: "Invalid JSON",
-        description: "The provided text is not valid logic JSON. Please check and try again.",
+        description: `The provided text is not valid logic JSON. ${errorMsg}`,
         variant: "destructive"
       });
     }
@@ -176,7 +204,7 @@ export function ReceiverView() {
                   <Textarea 
                       id="manual-json"
                       value={manualJson}
-                      onChange={e => setManualJson(e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setManualJson(e.target.value)}
                       placeholder='Paste the logic JSON here if camera is unavailable...'
                       className="font-mono text-xs h-24"
                   />

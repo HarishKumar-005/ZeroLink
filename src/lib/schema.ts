@@ -46,3 +46,23 @@ export type Logic = z.infer<typeof LogicSchema>;
 export type Action = z.infer<typeof ActionSchema>;
 export type Trigger = z.infer<typeof TriggerSchema>;
 export type Condition = z.infer<typeof BaseConditionSchema>;
+
+// Additional types exported for use across the app
+export type SensorData = {
+  light: number;
+  temperature: number;
+  motion: boolean;
+};
+
+export type DeviceStates = {
+  fan: boolean;
+  light: boolean;
+  pump: boolean;
+  siren: boolean;
+}
+
+export type EventLogEntry = {
+  id: string;
+  timestamp: Date;
+  message: string;
+};

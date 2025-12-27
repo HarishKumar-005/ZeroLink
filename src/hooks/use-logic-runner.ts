@@ -21,9 +21,19 @@ const checkCondition = (condition: Condition, sensorData: SensorData): boolean =
     }
 
     const sensorValue = sensorData[condition.sensor];
+    
+    // Type guard for numeric comparisons
+    if (condition.operator === '>' || condition.operator === '<') {
+        if (typeof sensorValue !== 'number' || typeof condition.value !== 'number') {
+            return false;
+        }
+        return condition.operator === '>' 
+            ? sensorValue > condition.value 
+            : sensorValue < condition.value;
+    }
+    
+    // Equality comparisons work for both number and boolean
     switch (condition.operator) {
-        case '>': return sensorValue > (condition.value as number);
-        case '<': return sensorValue < (condition.value as number);
         case '=': 
             return String(sensorValue).toLowerCase() === String(condition.value).toLowerCase();
         case '!=':
@@ -68,7 +78,7 @@ const triggerFeedback = () => {
 export const useLogicRunner = (
     logic: Logic | null, 
     sensorData: SensorData,
-    onDeviceStateChange: (device: keyof DeviceStates, state: boolean) => void
+    onDeviceStateChange: (device: 'fan' | 'light' | 'pump' | 'siren', state: boolean) => void
 ) => {
     const [eventLog, setEventLog] = useState<EventLogEntry[]>([]);
     const lastTriggerTime = useRef<number>(0);
