@@ -40,10 +40,11 @@ let apiKeys: string[] = [];
 let keyStates: Map<string, KeyState> = new Map();
 let currentKeyIndex = 0;
 
-// In-memory cache
+// In-memory cache with better TTL strategy
 const cache = new LRUCache<string, any>({
   max: 100,
-  ttl: 1000 * 60, // 60 seconds
+  ttl: 1000 * 60 * 5, // Increased to 5 minutes for better reuse
+  updateAgeOnGet: true, // Reset TTL on cache hit
 });
 
 /**

@@ -4,30 +4,21 @@
 import { LogicSchema, type Logic } from "@/lib/schema";
 import { generateWithFallback } from '@/lib/gemini-key-rotator';
 
-const SYSTEM_PROMPT = `You are a logic compiler. Convert user instructions into JSON only.
-Return a single JSON object matching this shape:
+// Optimized system prompt - concise and structured to minimize tokens
+const SYSTEM_PROMPT = `JSON compiler. Convert to:
+{name:string,triggers:T|T[],actions:A|A[]}
 
-{
-  name: string,
-  triggers: Trigger | Trigger[],
-  actions: Action | Action[]
-}
+T: {sensor:'temperature'|'light'|'motion'|'timeOfDay',operator:'>'|'<'|'='|'!=',value:number|boolean|'day'|'night'}
+   OR {type:'all'|'any',conditions:T[]}
 
-Trigger:
-- Simple: { sensor: 'temperature'|'light'|'motion'|'timeOfDay', operator: '>'|'<'|'='|'!=', value: number|boolean|'day'|'night' }
-- Group: { type: 'all'|'any', conditions: Trigger[] }
-
-Action:
-- { type: 'log', payload: { message: string } }
-- { type: 'toggle', payload: { device: 'light'|'fan'|'pump'|'siren', state: 'on'|'off' } }
-- { type: 'flashBackground', payload: {} }
+A: {type:'log'|'toggle'|'flashBackground'|'vibrate',payload?:{message?,device?:'light'|'fan'|'pump'|'siren',state?:'on'|'off',color?:string,duration?:number}}
 
 Rules:
-- Multiple sentences → triggers array
-- Nested AND/OR → recursive groups
-- motion uses boolean
-- timeOfDay uses 'day' or 'night'
-- Return ONLY JSON. No markdown. No explanation.`;
+- Multiple conditions → triggers array
+- AND/OR → nested groups
+- motion: boolean
+- timeOfDay: 'day'|'night'
+- Return ONLY valid JSON, no markdown or explanation`;
 
 export async function generateLogicAction(
   naturalLanguage: string
@@ -35,8 +26,18 @@ export async function generateLogicAction(
   if (!naturalLanguage.trim()) {
     return { logic: null, error: "Please enter a description for the logic.", rawJson: null };
   }
+  
+  // Input validation - prevent excessively long prompts
+  if (naturalLanguage.length > 500) {
+    return { 
+      logic: null, 
+      error: "Description is too long. Please keep it under 500 characters.", 
+      rawJson: null 
+    };
+  }
 
-  const fullPrompt = `${SYSTEM_PROMPT}\n\nUser Prompt: "${naturalLanguage}"`;
+  // Simple optimization: use concise prompt format
+  const fullPrompt = `${SYSTEM_PROMPT}\n\nConvert: "${naturalLanguage}"`;
 
   try {
     const result = await generateWithFallback({
@@ -48,7 +49,7 @@ export async function generateLogicAction(
       console.error('[generateLogicAction] Key rotator failed:', result.error);
       return { 
           logic: null, 
-          error: 'The AI service is currently unavailable or rate-limited.', 
+          error: 'The AI service is currently unavailable. Please try again in a moment.', 
           rawJson: null 
       };
     }
@@ -56,25 +57,35 @@ export async function generateLogicAction(
     let rawJsonResult: string;
     try {
         const aiResponse = result.data as string;
-        // AI might wrap the JSON in markdown, so we need to extract it.
-        const match = aiResponse.match(/```(json)?\s*([\s\S]*?)\s*```/);
-        rawJsonResult = match ? match[2] : aiResponse;
+        
+        // Strip markdown code blocks if present
+        const match = aiResponse.match(/```(?:json)?\s*([\s\S]*?)\s*```/);
+        rawJsonResult = match ? match[1] : aiResponse.trim();
+        
+        // Additional cleanup - remove any leading/trailing non-JSON content
+        const jsonMatch = rawJsonResult.match(/\{[\s\S]*\}/);
+        if (jsonMatch) {
+          rawJsonResult = jsonMatch[0];
+        }
         
         const logicObject = JSON.parse(rawJsonResult);
 
-        // Zod is the source of truth. Validate the AI's output.
+        // Validate using Zod schema
         const validation = LogicSchema.safeParse(logicObject);
 
         if (!validation.success) {
-            console.error('[generateLogicAction] Zod validation failed:', validation.error.flatten());
+            console.error('[generateLogicAction] Validation failed:', validation.error.flatten());
+            const errorDetails = validation.error.errors.map(e => `${e.path.join('.')}: ${e.message}`).join('; ');
             return { 
                 logic: null,
-                error: "The AI returned a response with an invalid structure. Please try rephrasing your request.",
+                error: `AI response has invalid structure: ${errorDetails}. Please try rephrasing.`,
                 rawJson: rawJsonResult
             };
         }
 
         const validatedLogic = validation.data;
+        
+        // Normalize to array format for consistency
         const normalizedLogic: Logic = {
             name: validatedLogic.name,
             triggers: Array.isArray(validatedLogic.triggers) ? validatedLogic.triggers : [validatedLogic.triggers],
@@ -84,20 +95,21 @@ export async function generateLogicAction(
         return { logic: normalizedLogic, error: null, rawJson: rawJsonResult };
 
     } catch (e) {
-      console.error('[generateLogicAction] JSON parsing/validation error:', e, "Raw response:", result.data);
+      const errorMsg = e instanceof Error ? e.message : 'Unknown parsing error';
+      console.error('[generateLogicAction] Parse error:', errorMsg, "Raw:", result.data);
       return { 
           logic: null, 
-          error: 'The AI returned invalid JSON. Please try again.',
+          error: 'The AI returned invalid JSON. Please try rephrasing your request.',
           rawJson: result.data as string
       };
     }
 
   } catch (e) {
-    console.error("[generateLogicAction] General error:", e);
+    console.error("[generateLogicAction] Unexpected error:", e);
     const errorMessage = e instanceof Error ? e.message : "An unknown error occurred.";
     return { 
       logic: null, 
-      error: `Failed to communicate with the generation service. Details: ${errorMessage}`,
+      error: `Failed to communicate with AI service: ${errorMessage}`,
       rawJson: null
     };
   }

@@ -24,6 +24,18 @@ type QrChunk = {
   chunkIndex: number;
   totalChunks: number;
   data: string;
+  checksum: string; // Add checksum for data integrity
+}
+
+// Simple checksum function for data integrity
+function calculateChecksum(data: string): string {
+  let hash = 0;
+  for (let i = 0; i < data.length; i++) {
+    const char = data.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32-bit integer
+  }
+  return Math.abs(hash).toString(36);
 }
 
 export function QrCodeDisplay({ logic }: QrCodeDisplayProps) {
@@ -36,8 +48,16 @@ export function QrCodeDisplay({ logic }: QrCodeDisplayProps) {
   const chunks = useMemo(() => {
     const logicString = JSON.stringify(logic);
     
-    const overhead = JSON.stringify({ sessionId: "", chunkIndex: 99, totalChunks: 99, data: "" }).length;
-    const effectiveChunkSize = CHUNK_SIZE - overhead;
+    // Calculate overhead more accurately with checksum included
+    const sampleChunk: QrChunk = { 
+      sessionId: "a".repeat(36), // UUID length
+      chunkIndex: 99, 
+      totalChunks: 99, 
+      data: "",
+      checksum: "xxxxxx" // approximate checksum length
+    };
+    const overhead = JSON.stringify(sampleChunk).length;
+    const effectiveChunkSize = Math.max(50, CHUNK_SIZE - overhead); // Ensure minimum chunk size
     
     const numChunks = Math.ceil(logicString.length / effectiveChunkSize) || 1;
     
@@ -49,6 +69,7 @@ export function QrCodeDisplay({ logic }: QrCodeDisplayProps) {
         chunkIndex: i + 1,
         totalChunks: numChunks,
         data: content,
+        checksum: calculateChecksum(content),
       };
       newChunks.push(JSON.stringify(chunk));
     }
