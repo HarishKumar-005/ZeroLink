@@ -73,7 +73,7 @@ export function ReceiverView() {
     persistState(SENSOR_STORAGE_KEY, newSensorData);
   };
   
-  const handleDeviceStateChange = (device: keyof DeviceStates, state: boolean) => {
+  const handleDeviceStateChange = (device: 'fan' | 'light' | 'pump' | 'siren', state: boolean) => {
     setDeviceStates(prev => {
         const newStates = { ...prev, [device]: state };
         persistState(DEVICE_STATE_STORAGE_KEY, newStates);
@@ -176,7 +176,7 @@ export function ReceiverView() {
                   <Textarea 
                       id="manual-json"
                       value={manualJson}
-                      onChange={e => setManualJson(e.target.value)}
+                      onChange={(e: React.ChangeEvent<HTMLTextAreaElement>) => setManualJson(e.target.value)}
                       placeholder='Paste the logic JSON here if camera is unavailable...'
                       className="font-mono text-xs h-24"
                   />
